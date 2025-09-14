@@ -11,10 +11,10 @@ on:
 
 jobs:
 
-  build:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
+   build:
+     runs-on: ubuntu-latest
+     steps:
+     - uses: actions/checkout@v4
 
      - name: Set up Go
        uses: actions/setup-go@v4
@@ -29,8 +29,8 @@ jobs:
      - name: Lint
        run: make lint
 
-    - name: Test
-      run: make test
+     - name: Test
+       run: make test
 
-    - name: Build
-      run: make build
+     - name: Build
+       run: make build

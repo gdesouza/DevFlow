@@ -51,14 +51,28 @@ release: check-clean ## Create a new release tag (requires BUMP_TYPE=major|minor
 	echo "Created tag v$$new_version and built binary with embedded version v$$new_version"
 
 # Install the program to the Go bin directory
-install: ## Install the program to the Go bin directory
-	@latest_version=$$(./scripts/git-latest-release.sh); \
-	if [ "$$latest_version" = "No releases found" ]; then \
-		version="0.0.0"; \
+install: ## Install the program to the Go bin directory (use VERSION=v1.0.0 to install specific version)
+	@if [ -n "$(VERSION)" ]; then \
+		if ! git tag --list | grep -q "^$(VERSION)$$"; then \
+			echo "Error: Version $(VERSION) not found in git tags"; \
+			exit 1; \
+		fi; \
+		git stash; \
+		current_ref=$$(git rev-parse HEAD); \
+		git checkout $(VERSION); \
+		version=$$(echo $(VERSION) | sed 's/^v//'); \
+		go install -ldflags "-X 'devflow/cmd.version=v$$version'" .; \
+		git checkout $$current_ref; \
+		git stash pop; \
 	else \
-		version=$${latest_version#v}; \
-	fi; \
-	go install -ldflags "-X 'devflow/cmd.version=v$$version'" .
+		latest_version=$$(./scripts/git-latest-release.sh); \
+		if [ "$$latest_version" = "No releases found" ]; then \
+			version="0.0.0"; \
+		else \
+			version=$$(echo $$latest_version | sed 's/^v//'); \
+		fi; \
+		go install -ldflags "-X 'devflow/cmd.version=v$$version'" .; \
+	fi
 
 # Show help
 help: ## Show this help message

@@ -17,6 +17,9 @@ go.work
 # Bin directory
 bin/
 
+# Devflow binary
+devflow
+
 # Configuration files with secrets
 config.json
 .env

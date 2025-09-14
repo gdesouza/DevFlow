@@ -1,4 +1,4 @@
-# Jira-Bitbucket CLI
+# DevFlow
 
 A powerful command-line interface tool for streamlining development workflows with Jira and Bitbucket. Perfect for developers who want to manage tasks and repositories from the terminal.
 

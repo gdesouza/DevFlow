@@ -78,5 +78,7 @@ func init() {
 	createPRCmd.Flags().StringVarP(&prRepoSlug, "repo", "r", "", "Repository slug (required)")
 	createPRCmd.Flags().StringVarP(&sourceBranch, "source", "s", "", "Source branch (default: develop)")
 	createPRCmd.Flags().StringVarP(&destinationBranch, "dest", "d", "", "Destination branch (default: main)")
-	createPRCmd.MarkFlagRequired("repo")
+	if err := createPRCmd.MarkFlagRequired("repo"); err != nil {
+		panic(err)
+	}
 }

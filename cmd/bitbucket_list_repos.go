@@ -137,7 +137,9 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 			} else {
 				fmt.Println("Already at the last page.")
 				fmt.Print("Press Enter to continue...")
-				reader.ReadString('\n')
+				if _, err := reader.ReadString('\n'); err != nil {
+					return
+				}
 			}
 		case "p", "prev", "previous":
 			if currentPage > 0 {
@@ -145,7 +147,9 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 			} else {
 				fmt.Println("Already at the first page.")
 				fmt.Print("Press Enter to continue...")
-				reader.ReadString('\n')
+				if _, err := reader.ReadString('\n'); err != nil {
+					return
+				}
 			}
 		case "g", "go":
 			fmt.Printf("Enter page number (1-%d): ", totalPages)
@@ -155,13 +159,17 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 				currentPage = pageNum - 1
 			} else {
 				fmt.Printf("Invalid page number. Press Enter to continue...")
-				reader.ReadString('\n')
+				if _, err := reader.ReadString('\n'); err != nil {
+					return
+				}
 			}
 		case "q", "quit", "exit":
 			return
 		default:
 			fmt.Printf("Invalid command. Press Enter to continue...")
-			reader.ReadString('\n')
+			if _, err := reader.ReadString('\n'); err != nil {
+				return
+			}
 		}
 	}
 }

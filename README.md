@@ -40,12 +40,14 @@ A powerful command-line interface tool for streamlining development workflows wi
 git clone <repository-url>
 cd devflow
 
-# Build from source
-go build -o devflow
+# Install to your Go bin directory (recommended)
+make install
 
-# Or use the Makefile for cross-platform builds
-make build-all
+# Ensure ~/go/bin is in your PATH (add to ~/.bashrc if needed)
+export PATH="$HOME/go/bin:$PATH"
 ```
+
+**Note:** `make install` installs the binary to `~/go/bin/devflow` with the latest release version embedded. For development or custom builds, see the Development section below.
 
 ### 2. Configuration
 

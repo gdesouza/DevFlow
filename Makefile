@@ -1,8 +1,9 @@
-.PHONY: build build-all clean test lint release check-clean
+.PHONY: build build-all clean test lint release check-clean install
 
 # Build for current platform
 build:
-	go build -o bin/devflow
+	mkdir -p bin
+	go build -ldflags "-X 'devflow/cmd.version=dev'" -o bin/devflow
 
 # Build for multiple platforms
 build-all:
@@ -43,5 +44,10 @@ check-clean:
 # Create a new release tag
 release: check-clean
 	@new_version=$$(./scripts/bump-version.sh $(BUMP_TYPE)); \
+	go build -ldflags "-X 'devflow/cmd.version=v$$new_version'" -o bin/devflow; \
 	git tag "v$$new_version"; \
-	echo "Created tag v$$new_version"
+	echo "Created tag v$$new_version and built binary with embedded version v$$new_version"
+
+# Install the program to the Go bin directory
+install:
+	go install .

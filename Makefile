@@ -1,4 +1,4 @@
-.PHONY: build build-all clean test lint
+.PHONY: build build-all clean test lint release check-clean
 
 # Build for current platform
 build:
@@ -32,3 +32,16 @@ deps:
 # Development setup
 dev-setup: deps
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# Check for unstaged/uncommitted files
+check-clean:
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Warning: There are unstaged or uncommitted files. Please commit or stash them."; \
+		exit 1; \
+	fi
+
+# Create a new release tag
+release: check-clean
+	@new_version=$$(./scripts/bump-version.sh $(BUMP_TYPE)); \
+	git tag "v$$new_version"; \
+	echo "Created tag v$$new_version"

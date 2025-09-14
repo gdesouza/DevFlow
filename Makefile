@@ -52,7 +52,13 @@ release: check-clean ## Create a new release tag (requires BUMP_TYPE=major|minor
 
 # Install the program to the Go bin directory
 install: ## Install the program to the Go bin directory
-	go install .
+	@latest_version=$$(./scripts/git-latest-release.sh); \
+	if [ "$$latest_version" = "No releases found" ]; then \
+		version="0.0.0"; \
+	else \
+		version=$${latest_version#v}; \
+	fi; \
+	go install -ldflags "-X 'devflow/cmd.version=v$$version'" .
 
 # Show help
 help: ## Show this help message

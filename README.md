@@ -297,6 +297,32 @@ devflow/
 ./devflow --verbose jira list
 ```
 
+## 🛠️ Development
+
+### Session Summaries
+
+Development session summaries are maintained in [`docs/sessions/`](docs/sessions/) to provide context continuity between development sessions. These summaries document:
+
+- Feature implementation details and architectural decisions
+- API integration patterns and authentication flows
+- CLI design choices and user experience considerations
+- Key technical insights and lessons learned  
+- Implementation approach and rationale
+- Files modified and their purposes
+- Test coverage and validation approach
+
+This helps maintain context for future development work and provides valuable historical information about the project's evolution, especially important for a tool that integrates with multiple external APIs.
+
+### Contributing
+
+When contributing to this project:
+1. Follow the existing code structure and patterns
+2. Add comprehensive tests for new features
+3. Update documentation (README, session summaries)
+4. Use the session summary template for significant changes
+5. Consider API rate limiting and error handling
+6. Test with both Jira and Bitbucket integrations
+
 ## 🤝 Contributing
 
 1. Fork the repository

@@ -23,4 +23,5 @@ func init() {
 	pullrequestCmd.AddCommand(showPRCmd)
 	pullrequestCmd.AddCommand(myPRsCmd)
 	pullrequestCmd.AddCommand(createPRCmd)
+	pullrequestCmd.AddCommand(participatingCmd)
 }

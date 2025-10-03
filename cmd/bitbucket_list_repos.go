@@ -1,16 +1,18 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"devflow/internal/bitbucket"
 	"devflow/internal/config"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
@@ -76,122 +78,252 @@ func runPagedMode(client *bitbucket.Client, workspace string, page, size int) {
 	}
 }
 
+// runInteractiveMode provides an arrow-key driven UI for browsing and toggling watched repositories.
+// Keys:
+//  Up/Down: move selection
+//  Left/Right: previous/next page
+//  Space or Enter: toggle watch
+//  w: jump to next watched repo
+//  g: go to page number
+//  s: save (no-op; autosave already happens)
+//  q: quit
 func runInteractiveMode(client *bitbucket.Client, workspace string) {
-	reader := bufio.NewReader(os.Stdin)
-	currentPage := 0
-
-	// Use the pageSize variable from flags, or ask user if not specified
+	// Determine interactive page size (prompt only if default)
 	interactivePageSize := pageSize
-	if pageSize == 20 { // Default value, ask user
+	if pageSize == 20 { // default flag value; offer smaller default prompt
 		fmt.Print("Enter page size (default 10): ")
-		sizeInput, _ := reader.ReadString('\n')
-		sizeInput = strings.TrimSpace(sizeInput)
-		if sizeInput == "" {
+		var inp string
+		fmt.Scanln(&inp)
+		if strings.TrimSpace(inp) == "" {
 			interactivePageSize = 10
-		} else if size, err := strconv.Atoi(sizeInput); err == nil && size > 0 && size <= 100 {
-			interactivePageSize = size
+		} else if n, err := strconv.Atoi(strings.TrimSpace(inp)); err == nil && n > 0 && n <= 100 {
+			interactivePageSize = n
 		} else {
 			fmt.Println("Invalid page size, using default of 10.")
 			interactivePageSize = 10
 		}
 	}
 
+	// Load config & build initial watched set
+	cfg, _ := config.Load()
+	watchedSet := map[string]struct{}{}
+	for _, w := range cfg.Bitbucket.WatchedRepos {
+		watchedSet[strings.ToLower(w)] = struct{}{}
+	}
+
+	currentPage := 0
+	selection := 0
+	var totalPages int
+	var totalCount int
+
+	// Terminal raw mode setup
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		log.Fatalf("Failed to set raw mode: %v", err)
+	}
+	defer term.Restore(int(os.Stdin.Fd()), oldState)
+
+	stdin := os.Stdin
+	buf := make([]byte, 3) // enough for ESC seq
+
+	fetchPage := func(page int) ([]bitbucket.Repository, error) {
+		repos, count, err := client.GetRepositoriesPaged(page, interactivePageSize)
+		if err != nil {
+			return nil, err
+		}
+		totalCount = count
+		totalPages = (totalCount + interactivePageSize - 1) / interactivePageSize
+		if selection >= len(repos) {
+			selection = len(repos) - 1
+			if selection < 0 {
+				selection = 0
+			}
+		}
+		return repos, nil
+	}
+
+	repos, err := fetchPage(currentPage)
+	if err != nil {
+		log.Fatalf("Error fetching repositories: %v", err)
+	}
+	if len(repos) == 0 {
+		fmt.Printf("No repositories found in workspace '%s'.\n", workspace)
+		return
+	}
+
 	for {
-		// Get repositories for current page
-		repos, totalCount, err := client.GetRepositoriesPaged(currentPage, interactivePageSize)
-		if err != nil {
-			log.Fatalf("Error fetching repositories: %v", err)
+		// Draw screen (use CRLF to reset column in raw mode)
+		var bldr strings.Builder
+		bldr.WriteString("\033[2J\033[1;1H") // clear + home
+		fmt.Fprintf(&bldr, "Found %d repositories in workspace '%s' (Page %d/%d)\r\n\r\n", totalCount, workspace, currentPage+1, totalPages)
+		for i, r := range repos {
+			privacyIcon := "PRV"
+			if !r.IsPrivate {
+				privacyIcon = "PUB"
+			}
+			watchIcon := "[ ]"
+			if _, ok := watchedSet[strings.ToLower(r.Name)]; ok {
+				watchIcon = "[*]"
+			}
+			if i == selection {
+				fmt.Fprintf(&bldr, "\033[7m%3d %s %s %s\033[0m\r\n", i+1, watchIcon, privacyIcon, r.Name)
+			} else {
+				fmt.Fprintf(&bldr, "%3d %s %s %s\r\n", i+1, watchIcon, privacyIcon, r.Name)
+			}
 		}
+		bldr.WriteString("\r\nKeys: ↑/↓ move  ←/→ page  Space/Enter toggle  w next-watched  g go-page  s save  q quit\r\n")
+		os.Stdout.WriteString(bldr.String())
 
-		if len(repos) == 0 && currentPage == 0 {
-			fmt.Printf("No repositories found in workspace '%s'.\n", workspace)
+		// Read key
+		stdin.SetReadDeadline(time.Now().Add(5 * time.Minute))
+		n, err := stdin.Read(buf[:1])
+		if err != nil || n == 0 {
+			continue
+		}
+		b := buf[0]
+
+		if b == 3 { // Ctrl+C
 			return
 		}
 
-		// Clear screen (ANSI escape code)
-		fmt.Print("\033[2J\033[1;1H")
-
-		totalPages := (totalCount + interactivePageSize - 1) / interactivePageSize // Ceiling division
-		fmt.Printf("Found %d repositories in workspace '%s' (Page %d/%d):\n\n", totalCount, workspace, currentPage+1, totalPages)
-
-		displayReposPage(repos, workspace)
-
-		if totalPages <= 1 {
-			fmt.Println("\n--- End of results ---")
-			return
+		if b == 27 { // ESC sequence
+			stdin.Read(buf[1:2]) // should be '['
+			stdin.Read(buf[2:3]) // code
+			code := buf[2]
+			switch code {
+			case 'A': // Up
+				if selection > 0 {
+					selection--
+				} else {
+					selection = len(repos) - 1
+				}
+			case 'B': // Down
+				if selection < len(repos)-1 {
+					selection++
+				} else {
+					selection = 0
+				}
+			case 'C': // Right (next page)
+				if currentPage < totalPages-1 {
+					currentPage++
+					repos, err = fetchPage(currentPage)
+					if err != nil {
+						log.Fatalf("Error fetching repositories: %v", err)
+					}
+				}
+			case 'D': // Left (previous page)
+				if currentPage > 0 {
+					currentPage--
+					repos, err = fetchPage(currentPage)
+					if err != nil {
+						log.Fatalf("Error fetching repositories: %v", err)
+					}
+				}
+			}
+			continue
 		}
 
-		fmt.Printf("\n--- Page %d of %d ---\n", currentPage+1, totalPages)
-		fmt.Print("Navigation: (n)ext, (p)revious, (g)o to page, (q)uit: ")
-
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			log.Fatalf("Error reading input: %v", err)
-		}
-
-		input = strings.TrimSpace(strings.ToLower(input))
-
-		switch input {
-		case "n", "next":
-			if currentPage < totalPages-1 {
-				currentPage++
-			} else {
-				fmt.Println("Already at the last page.")
-				fmt.Print("Press Enter to continue...")
-				if _, err := reader.ReadString('\n'); err != nil {
-					return
-				}
-			}
-		case "p", "prev", "previous":
-			if currentPage > 0 {
-				currentPage--
-			} else {
-				fmt.Println("Already at the first page.")
-				fmt.Print("Press Enter to continue...")
-				if _, err := reader.ReadString('\n'); err != nil {
-					return
-				}
-			}
-		case "g", "go":
-			fmt.Printf("Enter page number (1-%d): ", totalPages)
-			pageInput, _ := reader.ReadString('\n')
-			pageInput = strings.TrimSpace(pageInput)
-			if pageNum, err := strconv.Atoi(pageInput); err == nil && pageNum >= 1 && pageNum <= totalPages {
-				currentPage = pageNum - 1
-			} else {
-				fmt.Printf("Invalid page number. Press Enter to continue...")
-				if _, err := reader.ReadString('\n'); err != nil {
-					return
-				}
-			}
-		case "q", "quit", "exit":
+		switch b {
+		case 'q', 'Q':
 			return
-		default:
-			fmt.Printf("Invalid command. Press Enter to continue...")
-			if _, err := reader.ReadString('\n'); err != nil {
-				return
+		case ' ': // toggle
+			if selection >= 0 && selection < len(repos) {
+				name := strings.ToLower(repos[selection].Name)
+				if _, ok := watchedSet[name]; ok {
+					delete(watchedSet, name)
+				} else {
+					watchedSet[name] = struct{}{}
+				}
+				saveWatched(watchedSet)
 			}
+		case '\r', '\n': // Enter toggles
+			if selection >= 0 && selection < len(repos) {
+				name := strings.ToLower(repos[selection].Name)
+				if _, ok := watchedSet[name]; ok {
+					delete(watchedSet, name)
+				} else {
+					watchedSet[name] = struct{}{}
+				}
+				saveWatched(watchedSet)
+			}
+		case 'w', 'W': // next watched
+			if len(watchedSet) > 0 {
+				found := -1
+				for i := selection + 1; i < len(repos); i++ {
+					if _, ok := watchedSet[strings.ToLower(repos[i].Name)]; ok {
+						found = i
+						break
+					}
+				}
+				if found == -1 { // wrap
+					for i := 0; i <= selection && i < len(repos); i++ {
+						if _, ok := watchedSet[strings.ToLower(repos[i].Name)]; ok {
+							found = i
+							break
+						}
+					}
+				}
+				if found != -1 {
+					selection = found
+				}
+			}
+		case 'g', 'G': // go to page
+			fmt.Print("\nPage number: ")
+			// Temporarily leave raw for line input
+			term.Restore(int(os.Stdin.Fd()), oldState)
+			var pageInput string
+			fmt.Scanln(&pageInput)
+			oldState, _ = term.MakeRaw(int(os.Stdin.Fd()))
+			if p, err := strconv.Atoi(strings.TrimSpace(pageInput)); err == nil && p >= 1 && p <= totalPages {
+				currentPage = p - 1
+				repos, err = fetchPage(currentPage)
+				if err != nil {
+					log.Fatalf("Error fetching repositories: %v", err)
+				}
+				selection = 0
+			}
+		case 's', 'S': // explicit save (already saved on toggle)
+			// Just show a transient message
+			fmt.Print("\nSaved. Press any key...")
+			stdin.Read(buf[:1])
 		}
 	}
 }
 
+func saveWatched(watchedSet map[string]struct{}) {
+	cfg, _ := config.Load()
+	var list []string
+	for k := range watchedSet {
+		list = append(list, k)
+	}
+	sort.Strings(list)
+	cfg.Bitbucket.WatchedRepos = list
+	_ = config.Save(cfg)
+}
+
 func displayReposPage(repos []bitbucket.Repository, workspace string) {
-	for _, repo := range repos {
-		// Privacy indicator
+	cfg, _ := config.Load()
+	watched := map[string]struct{}{}
+	for _, w := range cfg.Bitbucket.WatchedRepos {
+		watched[strings.ToLower(w)] = struct{}{}
+	}
+
+	for idx, repo := range repos {
 		privacyIcon := "🔓"
 		if repo.IsPrivate {
 			privacyIcon = "🔒"
 		}
-
-		// Minimal format: name, URL, and language only
-		fmt.Printf("%s %s 🔗 https://bitbucket.org/%s/%s", privacyIcon, repo.Name, workspace, repo.Name)
-
+		watchIcon := "[ ]"
+		if _, ok := watched[strings.ToLower(repo.Name)]; ok {
+			watchIcon = "[⭐]"
+		}
+		fmt.Printf("%2d. %s %s %s 🔗 https://bitbucket.org/%s/%s", idx+1, watchIcon, privacyIcon, repo.Name, workspace, repo.Name)
 		if repo.Language != "" {
 			fmt.Printf(" 💻 %s", repo.Language)
 		}
-
 		fmt.Println()
 	}
+	fmt.Println("\nLegend: [⭐]=watched  [ ]=not watched | Use --interactive for arrow-key navigation")
 }
 
 func init() {

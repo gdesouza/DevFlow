@@ -97,12 +97,16 @@ Set up your API credentials:
 
 **🔍 Token Format Difference:**
 - **Jira tokens:** Start with `ATATT3x...` (Atlassian format)
-- **Bitbucket API tokens:** Generated from API tokens page
-- **Both use:** Bearer authentication
+- **Bitbucket personal API tokens (user-level):** Used with Basic auth (email + token)
+- **Bitbucket resource access tokens (workspace/project/repo):** Used with Bearer auth (Authorization: Bearer <token>)
+
+**Auth Selection Logic:**
+- If you set `bitbucket.username` (your email), DevFlow uses Basic auth.
+- If you leave `bitbucket.username` empty, DevFlow assumes a resource access token and uses Bearer.
 
 **❗ Common Mistake:** Don't use a Jira token for Bitbucket - they are completely different!
 
-**📅 Migration Note:** App passwords were deprecated on September 9, 2025. All existing app passwords will be disabled on June 9, 2026.
+**📅 Migration Note:** App passwords deprecated Sep 9 2025 and disabled Jun 9 2026. Use personal API tokens (Basic) or resource access tokens (Bearer).
 
 ## 📖 Usage Guide
 
@@ -166,6 +170,51 @@ Set up your API credentials:
 ```
 
 ### Pull Request & Repo Commands
+
+#### Watched Repositories (New)
+Mark repositories as "watched" to scope pull request commands.
+
+Interactive selection (refactored raw key navigation):
+```bash
+./devflow repo list --interactive
+# Keys:
+#   Up/Down: move selection
+#   Space/Enter: toggle watch for highlighted repo
+#   Left/Right: previous/next page
+#   w: jump to currently watched repos page
+#   g: go to page (then enter number)
+#   s: save & exit
+#   q: quit without saving
+```
+
+Direct watch management commands:
+```bash
+# Add/remove/toggle/list watched repos
+./devflow repo watch add <repo-slug>
+./devflow repo watch remove <repo-slug>
+./devflow repo watch toggle <repo-slug>
+./devflow repo watch list
+```
+
+Watched repo slugs are stored (sorted) under `bitbucket.watched_repos` in `~/.devflow/config.json`.
+
+Current PR command behavior (scoped to watched repos):
+```bash
+# List PRs in a specific watched repo (fails if not watched)
+./devflow pullrequest list --repo my-repo
+# Aggregate PRs across all watched repos
+./devflow pullrequest list
+
+# PRs where you are author (watched repos unless --all-repos)
+./devflow pullrequest mine                # aggregate across watched
+./devflow pullrequest mine --repo my-repo # single watched repo
+./devflow pullrequest mine --all-repos    # workspace-wide (ignores watch list)
+
+# PRs you participate in (author/reviewer) across watched repos
+./devflow pullrequest participating       # aggregate across watched
+./devflow pullrequest participating --repo my-repo
+```
+
 
 ```bash
 # List pull requests (includes direct links)

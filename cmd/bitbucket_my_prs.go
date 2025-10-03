@@ -18,10 +18,14 @@ var (
 var myPRsCmd = &cobra.Command{
 	Use:     "mine [repo-slug]",
 	Aliases: []string{"my-prs", "my"},
-	Short:   "List pull requests where you are the author",
-	Long:    `List all pull requests where you are the author. Use --all-repos to search across all repositories in the workspace.`,
+	Short:   "List PRs where you are author (watched repos)",
+	Long: `List pull requests you authored.
+
+Behavior changes:
+- Without --all-repos and no slug: aggregates across all watched repositories.
+- With a slug: requires that slug to be watched.
+- --all-repos still uses workspace-level endpoint (ignores watch list).`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Load configuration
 		cfg, err := config.Load()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
@@ -49,43 +53,60 @@ var myPRsCmd = &cobra.Command{
 		client := bitbucket.NewClient(&cfg.Bitbucket)
 
 		if myPRsAllRepos {
-			// Search across all repositories
 			userPRs, err := getPRsToReviewFromAllRepos(client, cfg.Bitbucket.Username)
 			if err != nil {
 				log.Fatalf("Error fetching pull requests: %v", err)
 			}
-
 			displayPRsToReview(userPRs, "all repositories", true)
-		} else {
-			// Search in specific repository
-			slug := myPRsRepoSlug
-			if slug == "" && len(args) > 0 {
-				slug = args[0]
-			}
-			if slug == "" {
-				log.Fatal("Repository slug is required. Use --repo or provide as argument")
-			}
+			return
+		}
 
-			// Get pull requests with reviewers
+		// Build watched set
+		watched := map[string]struct{}{}
+		for _, w := range cfg.Bitbucket.WatchedRepos {
+			watched[strings.ToLower(w)] = struct{}{}
+		}
+		if len(watched) == 0 {
+			log.Fatal("No watched repositories. Add some with: devflow bitbucket repo watch add <repo>")
+		}
+
+		// If slug provided ensure watched; else aggregate across watched
+		slug := myPRsRepoSlug
+		if slug == "" && len(args) > 0 {
+			slug = args[0]
+		}
+
+		if slug != "" {
+			if _, ok := watched[strings.ToLower(slug)]; !ok {
+				log.Fatalf("Repository '%s' not watched. Add with: devflow bitbucket repo watch add %s", slug, slug)
+			}
 			prs, err := client.GetPullRequestsWithReviewers(slug)
 			if err != nil {
 				log.Fatalf("Error fetching pull requests: %v", err)
 			}
-
-			// Filter PRs where current user is a reviewer
 			userPRs := filterPRsForUser(prs, cfg.Bitbucket.Username)
-
-			// Convert to PRWithRepo format for consistent display
 			var prsWithRepo []PRWithRepo
 			for _, pr := range userPRs {
-				prsWithRepo = append(prsWithRepo, PRWithRepo{
-					PR:       pr,
-					RepoSlug: slug,
-				})
+				prsWithRepo = append(prsWithRepo, PRWithRepo{PR: pr, RepoSlug: slug})
 			}
-
 			displayPRsToReview(prsWithRepo, slug, false)
+			return
 		}
+
+		// Aggregate across watched
+		var all []PRWithRepo
+		for w := range watched {
+			prs, err := client.GetPullRequestsWithReviewers(w)
+			if err != nil {
+				fmt.Printf("Warning: failed fetching PRs for %s: %v\n", w, err)
+				continue
+			}
+			userPRs := filterPRsForUser(prs, cfg.Bitbucket.Username)
+			for _, pr := range userPRs {
+				all = append(all, PRWithRepo{PR: pr, RepoSlug: w})
+			}
+		}
+		displayPRsToReview(all, "watched repositories", true)
 	},
 }
 

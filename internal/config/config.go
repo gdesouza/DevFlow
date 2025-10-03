@@ -19,10 +19,11 @@ type JiraConfig struct {
 }
 
 type BitbucketConfig struct {
-	Workspace     string `json:"workspace"`
-	Username      string `json:"username"`       // Email address for authentication
-	BitbucketUser string `json:"bitbucket_user"` // Username for API calls
-	Token         string `json:"token"`
+	Workspace     string   `json:"workspace"`
+	Username      string   `json:"username"`       // Email address for authentication
+	BitbucketUser string   `json:"bitbucket_user"` // Username for API calls
+	Token         string   `json:"token"`
+	WatchedRepos  []string `json:"watched_repos"` // List of watched repository slugs
 }
 
 var configPath = filepath.Join(os.Getenv("HOME"), ".devflow", "config.json")

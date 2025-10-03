@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -169,8 +170,15 @@ func (c *Client) makeRequestWithRetry(method, endpoint string, body interface{},
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
 
-		// Use Basic auth since Bearer auth is giving 401
-		req.SetBasicAuth(c.config.Username, c.config.Token)
+		// Authentication selection:
+		// - If a username (email) is configured, prefer Basic (personal API token)
+		// - If no username, assume a resource access token and use Bearer
+		// No automatic fallback to avoid masking misconfiguration.
+		if c.config.Username != "" {
+			req.SetBasicAuth(c.config.Username, c.config.Token)
+		} else {
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.config.Token))
+		}
 		req.Header.Set("Accept", "application/json")
 		req.Header.Set("Content-Type", "application/json")
 
@@ -192,7 +200,7 @@ func (c *Client) makeRequestWithRetry(method, endpoint string, body interface{},
 			return nil, fmt.Errorf("rate limit exceeded after %d retries", maxRetries)
 		}
 
-		// For other errors, don't retry
+		// Return early on HTTP errors (leave body for caller to inspect)
 		if resp.StatusCode >= 400 {
 			return resp, nil
 		}
@@ -253,6 +261,30 @@ func (c *Client) TestBasicAuth() error {
 // GetPullRequests retrieves pull requests for a repository
 func (c *Client) GetPullRequests(repoSlug string) ([]PullRequest, error) {
 	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests", c.config.Workspace, repoSlug)
+
+	resp, err := c.makeRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+	}
+
+	var prResp PullRequestsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&prResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return prResp.Values, nil
+}
+
+// GetParticipatingPullRequests retrieves pull requests where the user participates (author, reviewer, etc.)
+func (c *Client) GetParticipatingPullRequests(repoSlug, username string) ([]PullRequest, error) {
+	query := url.QueryEscape(fmt.Sprintf("participants.username=\"%s\"", username))
+	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests?q=%s", c.config.Workspace, repoSlug, query)
 
 	resp, err := c.makeRequest("GET", endpoint, nil)
 	if err != nil {

@@ -33,6 +33,14 @@ A powerful command-line interface tool for streamlining development workflows wi
 
 ## 🚀 Quick Start
 
+### Breaking Changes (v1.0.0)
+- Replaced top-level command `jira` with `tasks`
+- Replaced top-level command `bitbucket` with separate `repo` and `pullrequest` command groups
+- Removed `bitbucket test-auth` (authentication now implicitly verified on other commands)
+- Updated pull request subcommands to concise verbs: `list`, `show`, `create`, `mine`
+
+Update any scripts referencing old commands accordingly (e.g. `devflow jira list` -> `devflow tasks list`).
+
 ### 1. Installation
 
 ```bash

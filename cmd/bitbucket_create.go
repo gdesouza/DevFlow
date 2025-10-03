@@ -16,10 +16,11 @@ var (
 )
 
 var createPRCmd = &cobra.Command{
-	Use:   "create-pr [title]",
-	Short: "Create a pull request",
-	Long:  `Create a new pull request with the specified title`,
-	Args:  cobra.ExactArgs(1),
+	Use:     "create [title]",
+	Aliases: []string{"create-pr"},
+	Short:   "Create a pull request",
+	Long:    `Create a new pull request with the specified title`,
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		title := args[0]
 

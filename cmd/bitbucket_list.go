@@ -14,9 +14,10 @@ var (
 )
 
 var listPRsCmd = &cobra.Command{
-	Use:   "list-prs [repo-slug]",
-	Short: "List pull requests",
-	Long:  `List all pull requests for a repository. If no repo-slug is provided, uses the default repository.`,
+	Use:     "list [repo-slug]",
+	Aliases: []string{"list-prs"},
+	Short:   "List pull requests",
+	Long:    `List all pull requests for a repository. If no repo-slug is provided, uses the default repository.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load configuration
 		cfg, err := config.Load()

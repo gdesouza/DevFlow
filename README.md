@@ -4,7 +4,7 @@ A powerful command-line interface tool for streamlining development workflows wi
 
 ## ✨ Features
 
-### Jira Integration
+### Task Management (Jira Backend)
 - 📋 **List Tasks** - View your assigned Jira issues with filtering and sorting
 - 🔍 **Show Details** - Get comprehensive information about specific issues
 - 💬 **Find Mentions** - Discover issues where you're mentioned in comments
@@ -98,34 +98,34 @@ Set up your API credentials:
 
 ## 📖 Usage Guide
 
-### Jira Commands
+### Task Commands (formerly Jira)
 
 #### List Your Tasks
 ```bash
 # Basic list of your assigned tasks (includes direct links)
-./devflow jira list
+./devflow tasks list
 # Output includes 🔗 https://your-domain.atlassian.net/browse/ISSUE-KEY
 
 # Focus on active work (exclude completed tasks)
-./devflow jira list --exclude-done
+./devflow tasks list --exclude-done
 
 # Show priority information
-./devflow jira list --exclude-done --priority
+./devflow tasks list --exclude-done --priority
 
 # Filter by specific status
-./devflow jira list --filter "In Progress"
+./devflow tasks list --filter "In Progress"
 
 # Sort by priority (highest first)
-./devflow jira list --exclude-done --sort priority --priority
+./devflow tasks list --exclude-done --sort priority --priority
 
 # Combine multiple options
-./devflow jira list --exclude-done --sort priority --priority
+./devflow tasks list --exclude-done --sort priority --priority
 ```
 
 #### Show Issue Details
 ```bash
 # Get comprehensive details about a specific issue
-./devflow jira show ISSUE-123
+./devflow tasks show ISSUE-123
 
 # Example output includes:
 # - Issue summary and key
@@ -141,7 +141,7 @@ Set up your API credentials:
 #### Find Mentions
 ```bash
 # Find all issues where you're mentioned
-./devflow jira mentioned
+./devflow tasks mentioned
 
 # Searches through:
 # - Comments (@username mentions)
@@ -151,24 +151,23 @@ Set up your API credentials:
 
 #### Create New Tasks
 ```bash
-# Create a new Jira task
-./devflow jira create "Fix login bug"
+# Create a new task
+./devflow tasks create "Fix login bug"
 
 # Note: Requires project key configuration
 ```
 
-### Bitbucket Commands
+### Pull Request & Repo Commands
 
 ```bash
 # List pull requests (includes direct links)
-./devflow bitbucket list-prs --repo your-repo-name
+./devflow pullrequest list --repo your-repo-name
 # Output includes 🔗 https://bitbucket.org/workspace/repo/pull-requests/ID
 
 # Create a pull request
-./devflow bitbucket create-pr "Feature implementation" --repo your-repo-name --source feature-branch --dest main
+./devflow pullrequest create "Feature implementation" --repo your-repo-name --source feature-branch --dest main
 
-# Test authentication
-./devflow bitbucket test-auth
+# (Authentication is validated automatically when running other commands)
 ```
 
 ### Configuration Commands
@@ -240,12 +239,12 @@ golangci-lint run
 devflow/
 ├── cmd/                        # CLI commands using Cobra framework
 │   ├── root.go                 # Root command
-│   ├── jira.go                 # Jira command group
+│   ├── jira.go                 # Tasks command group (to be renamed tasks.go)
 │   ├── jira_list.go            # List Jira tasks with filtering
 │   ├── jira_show.go            # Show detailed issue information
 │   ├── jira_mentioned.go       # Find mentions
 │   ├── jira_create.go          # Create new tasks
-│   ├── bitbucket.go            # Bitbucket command group
+│   ├── bitbucket.go            # Repo & Pull Request command groups
 │   ├── bitbucket_list.go       # List pull requests
 │   ├── bitbucket_create.go     # Create pull requests
 │   ├── config.go               # Config command group
@@ -294,7 +293,7 @@ devflow/
 ### Debug Mode
 ```bash
 # Enable verbose output (future feature)
-./devflow --verbose jira list
+./devflow --verbose tasks list
 ```
 
 ## 🛠️ Development

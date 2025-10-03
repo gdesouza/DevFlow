@@ -12,10 +12,11 @@ import (
 )
 
 var showPRCmd = &cobra.Command{
-	Use:   "show-pr [repo-slug] [pr-id]",
-	Short: "Show detailed information about a pull request",
-	Long:  `Display comprehensive details about a specific pull request including description, author, branches, reviewers, and status`,
-	Args:  cobra.ExactArgs(2),
+	Use:     "show [repo-slug] [pr-id]",
+	Aliases: []string{"show-pr"},
+	Short:   "Show detailed information about a pull request",
+	Long:    `Display comprehensive details about a specific pull request including description, author, branches, reviewers, and status`,
+	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		repoSlug := args[0]
 		prIDStr := args[1]

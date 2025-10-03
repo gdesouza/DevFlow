@@ -16,7 +16,8 @@ func Execute() error {
 }
 
 func init() {
-	rootCmd.AddCommand(jiraCmd)
-	rootCmd.AddCommand(bitbucketCmd)
+	rootCmd.AddCommand(tasksCmd)
+	rootCmd.AddCommand(repoCmd)
+	rootCmd.AddCommand(pullrequestCmd)
 	rootCmd.AddCommand(configCmd)
 }

@@ -4,15 +4,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var jiraCmd = &cobra.Command{
-	Use:   "jira",
-	Short: "Jira operations",
-	Long:  `Manage Jira tasks, issues, and workflows`,
+var tasksCmd = &cobra.Command{
+	Use:   "tasks",
+	Short: "Work items (Jira)",
+	Long:  `Manage Jira tasks, issues, and workflow related actions`,
 }
 
 func init() {
-	jiraCmd.AddCommand(listTasksCmd)
-	jiraCmd.AddCommand(createTaskCmd)
-	jiraCmd.AddCommand(showIssueCmd)
-	jiraCmd.AddCommand(mentionedCmd)
+	tasksCmd.AddCommand(listTasksCmd)
+	tasksCmd.AddCommand(createTaskCmd)
+	tasksCmd.AddCommand(showIssueCmd)
+	tasksCmd.AddCommand(mentionedCmd)
 }

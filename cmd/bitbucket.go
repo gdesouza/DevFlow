@@ -4,17 +4,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var bitbucketCmd = &cobra.Command{
-	Use:   "bitbucket",
-	Short: "Bitbucket operations",
-	Long:  `Manage Bitbucket repositories, pull requests, and pipelines`,
+var repoCmd = &cobra.Command{
+	Use:   "repo",
+	Short: "Repository operations",
+	Long:  `Manage Bitbucket repositories`,
+}
+
+var pullrequestCmd = &cobra.Command{
+	Use:     "pullrequest",
+	Aliases: []string{"pr", "pullrequests", "prs"},
+	Short:   "Pull request operations",
+	Long:    `Manage Bitbucket pull requests`,
 }
 
 func init() {
-	bitbucketCmd.AddCommand(listReposCmd)
-	bitbucketCmd.AddCommand(listPRsCmd)
-	bitbucketCmd.AddCommand(showPRCmd)
-	bitbucketCmd.AddCommand(myPRsCmd)
-	bitbucketCmd.AddCommand(createPRCmd)
-	bitbucketCmd.AddCommand(testAuthCmd)
+	repoCmd.AddCommand(listReposCmd)
+	pullrequestCmd.AddCommand(listPRsCmd)
+	pullrequestCmd.AddCommand(showPRCmd)
+	pullrequestCmd.AddCommand(myPRsCmd)
+	pullrequestCmd.AddCommand(createPRCmd)
 }

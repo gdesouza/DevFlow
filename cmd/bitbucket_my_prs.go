@@ -16,9 +16,10 @@ var (
 )
 
 var myPRsCmd = &cobra.Command{
-	Use:   "my-prs [repo-slug]",
-	Short: "List pull requests where you are the author",
-	Long:  `List all pull requests where you are the author. Use --all-repos to search across all repositories in the workspace.`,
+	Use:     "mine [repo-slug]",
+	Aliases: []string{"my-prs", "my"},
+	Short:   "List pull requests where you are the author",
+	Long:    `List all pull requests where you are the author. Use --all-repos to search across all repositories in the workspace.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load configuration
 		cfg, err := config.Load()

@@ -20,9 +20,10 @@ var (
 )
 
 var listReposCmd = &cobra.Command{
-	Use:   "list-repos",
-	Short: "List repositories in the workspace",
-	Long:  `List repositories in the configured Bitbucket workspace with pagination support`,
+	Use:     "list",
+	Aliases: []string{"list-repos"},
+	Short:   "List repositories in the workspace",
+	Long:    `List repositories in the configured Bitbucket workspace with pagination support`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load configuration
 		cfg, err := config.Load()

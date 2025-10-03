@@ -51,11 +51,11 @@ var setupConfigCmd = &cobra.Command{
 
 		fmt.Println("")
 		fmt.Println("✅ Configuration saved successfully!")
-		fmt.Println("You can now use 'devflow jira' and 'devflow bitbucket' commands.")
+		fmt.Println("You can now use 'devflow tasks', 'devflow repo', and 'devflow pullrequest' commands.")
 		fmt.Println("")
 		fmt.Println("Next steps:")
-		fmt.Println("- Test Jira connection: devflow jira list")
-		fmt.Println("- Test Bitbucket connection: devflow bitbucket list")
+		fmt.Println("- List your tasks: devflow tasks list")
+		fmt.Println("- List your pull requests: devflow pullrequest list --repo <repo>")
 	},
 }
 

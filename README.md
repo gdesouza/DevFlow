@@ -110,6 +110,52 @@ Set up your API credentials:
 
 ## 📖 Usage Guide
 
+### Git Utilities (Local Repositories)
+
+List and inspect the sync status of all git repositories under a directory (recursively). Shows branch, sync state, dirtiness, ahead/behind counts (approximate), and upstream tracking branch.
+
+```bash
+# Basic usage (current directory)
+./devflow git list
+
+# Specify a root path to scan
+./devflow git list --path ~/code
+
+# Skip fetching remotes (faster, may be stale)
+./devflow git list --no-fetch
+
+# JSON output for scripting
+./devflow git list --json > repos.json
+```
+
+Sample table output:
+
+```
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Repository                           ┃ Branch   ┃ State      ┃ Dirty ┃ Ahead ┃ Behind ┃ Upstream     ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━╋━━━━━━━╋━━━━━━━━╋━━━━━━━━━━━━━━┫
+┃ api                                  ┃ main     ┃ up-to-date ┃ clean ┃ 0     ┃ 0      ┃ origin/main  ┃
+┃ web                                  ┃ featureX ┃ ahead      ┃ dirty ┃ 2     ┃ 0      ┃ origin/main  ┃
+┃ infra/terraform/modules/network      ┃ main     ┃ behind     ┃ clean ┃ 0     ┃ 3      ┃ origin/main  ┃
+┃ tools/old-experiment                 ┃ DETACHED ┃ detached   ┃ clean ┃ 0     ┃ 0      ┃              ┃
+┃ sandbox/prototype                    ┃ main     ┃ no-upstream┃ dirty ┃ 0     ┃ 0      ┃              ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━┻━━━━━━━┻━━━━━━━━┻━━━━━━━━━━━━━━┛
+```
+
+States:
+- up-to-date: Local and upstream commit match
+- ahead: Local has commits not on upstream
+- behind: Upstream has commits not local
+- diverged: Both sides have unique commits
+- no-upstream: Branch has no configured tracking branch
+- detached: HEAD is detached (not on a named branch)
+
+Dirty indicates uncommitted changes in the worktree.
+
+Ahead/Behind Accuracy Note:
+The counts use a bounded ancestor traversal (max 2000 commits each side) rather than a true merge-base calculation; for very large, divergent histories counts are approximate but state classification (ahead/behind/diverged) remains reliable.
+
+
 ### Task Commands (formerly Jira)
 
 #### List Your Tasks

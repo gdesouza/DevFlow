@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"devflow/internal/config"
@@ -236,7 +237,12 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 		fields["customfield_10020"] = opts.Sprint
 	}
 	if opts.Team != "" {
-		fields["customfield_11887"] = opts.Team
+		// Team Assigned usually expects an object with id or name. Accept numeric or string.
+		if _, err := strconv.Atoi(opts.Team); err == nil {
+			fields["customfield_11887"] = map[string]string{"id": opts.Team}
+		} else {
+			fields["customfield_11887"] = map[string]string{"name": opts.Team}
+		}
 	}
 
 	attempt := func(f map[string]interface{}) (*http.Response, []byte, error) {

@@ -214,21 +214,65 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 		fields["customfield_10020"] = opts.Sprint
 	}
 
-	body := map[string]interface{}{"fields": fields}
+	attempt := func(f map[string]interface{}) (*http.Response, []byte, error) {
+		body := map[string]interface{}{"fields": f}
+		resp, err := c.makeRequest("POST", endpoint, body)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to make request: %w", err)
+		}
+		data, _ := io.ReadAll(resp.Body)
+		return resp, data, nil
+	}
 
-	resp, err := c.makeRequest("POST", endpoint, body)
+	resp, data, err := attempt(fields)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
+	// On 400, try removing invalid custom fields once
+	if resp.StatusCode == http.StatusBadRequest {
+		// Try to parse error JSON to detect invalid fields
+		var errPayload struct {
+			Errors map[string]string `json:"errors"`
+		}
+		_ = json.Unmarshal(data, &errPayload)
+		removed := []string{}
+		for _, cf := range []string{"customfield_10014", "customfield_10016", "customfield_10020"} {
+			if _, bad := errPayload.Errors[cf]; bad {
+				if _, present := fields[cf]; present {
+					delete(fields, cf)
+					removed = append(removed, cf)
+				}
+			}
+		}
+		if len(removed) > 0 {
+			// Retry without the offending fields
+			resp.Body.Close()
+			resp2, data2, err2 := attempt(fields)
+			if err2 != nil {
+				return nil, err2
+			}
+			defer resp2.Body.Close()
+			if resp2.StatusCode != http.StatusCreated {
+				return nil, fmt.Errorf("API request failed (after retry) with status: %d, body: %s", resp2.StatusCode, string(data2))
+			}
+			var issue Issue
+			if err := json.Unmarshal(data2, &issue); err != nil {
+				return nil, fmt.Errorf("failed to decode response: %w", err)
+			}
+			// Emit a warning to stdout so user knows some fields were skipped
+			fmt.Printf("Warning: omitted unsupported custom fields: %v\n", removed)
+			return &issue, nil
+		}
+	}
+
 	if resp.StatusCode != http.StatusCreated {
-		responseBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status: %d, body: %s", resp.StatusCode, string(responseBody))
+		return nil, fmt.Errorf("API request failed with status: %d, body: %s", resp.StatusCode, string(data))
 	}
 
 	var issue Issue
-	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
+	if err := json.Unmarshal(data, &issue); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 

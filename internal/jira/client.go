@@ -185,10 +185,34 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 		opts.IssueType = "Task"
 	}
 
+	toADF := func(text string) interface{} {
+		if strings.TrimSpace(text) == "" {
+			return map[string]interface{}{
+				"type":    "doc",
+				"version": 1,
+				"content": []interface{}{map[string]interface{}{"type": "paragraph", "content": []interface{}{}}},
+			}
+		}
+		lines := strings.Split(text, "\n")
+		paragraphs := make([]interface{}, 0, len(lines))
+		for _, line := range lines {
+			line = strings.TrimRight(line, "\r")
+			if line == "" {
+				paragraphs = append(paragraphs, map[string]interface{}{"type": "paragraph", "content": []interface{}{}})
+				continue
+			}
+			paragraphs = append(paragraphs, map[string]interface{}{
+				"type":    "paragraph",
+				"content": []interface{}{map[string]interface{}{"type": "text", "text": line}},
+			})
+		}
+		return map[string]interface{}{"type": "doc", "version": 1, "content": paragraphs}
+	}
+
 	fields := map[string]interface{}{
 		"project":     map[string]string{"key": opts.ProjectKey},
 		"summary":     opts.Summary,
-		"description": opts.Description,
+		"description": toADF(opts.Description),
 		"issuetype":   map[string]string{"name": opts.IssueType},
 	}
 
@@ -221,38 +245,6 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 		return resp, data, nil
 	}
 
-	toADF := func(text string) interface{} {
-		if strings.TrimSpace(text) == "" {
-			return map[string]interface{}{ // empty paragraph to satisfy schema
-				"type":    "doc",
-				"version": 1,
-				"content": []interface{}{map[string]interface{}{"type": "paragraph"}},
-			}
-		}
-		// Split lines into paragraphs
-		lines := strings.Split(text, "\n")
-		paragraphs := make([]interface{}, 0, len(lines))
-		for _, line := range lines {
-			line = strings.TrimRight(line, "\r")
-			if line == "" {
-				paragraphs = append(paragraphs, map[string]interface{}{"type": "paragraph"})
-				continue
-			}
-			paragraphs = append(paragraphs, map[string]interface{}{
-				"type": "paragraph",
-				"content": []interface{}{map[string]interface{}{
-					"type": "text",
-					"text": line,
-				}},
-			})
-		}
-		return map[string]interface{}{
-			"type":    "doc",
-			"version": 1,
-			"content": paragraphs,
-		}
-	}
-
 	resp, data, err := attempt(fields)
 	if err != nil {
 		return nil, err
@@ -266,8 +258,6 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 		_ = json.Unmarshal(data, &errPayload)
 
 		removed := []string{}
-		needsADF := false
-		// Detect unsupported custom fields
 		for _, cf := range []string{"customfield_10014", "customfield_10016", "customfield_10020"} {
 			if msg, bad := errPayload.Errors[cf]; bad && msg != "" {
 				if _, present := fields[cf]; present {
@@ -276,13 +266,7 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 				}
 			}
 		}
-		// Detect ADF requirement for description
-		if descMsg, ok := errPayload.Errors["description"]; ok && strings.Contains(strings.ToLower(descMsg), "atlassian document") {
-			fields["description"] = toADF(opts.Description)
-			needsADF = true
-		}
-
-		if needsADF || len(removed) > 0 {
+		if len(removed) > 0 {
 			resp.Body.Close()
 			resp2, data2, err2 := attempt(fields)
 			if err2 != nil {
@@ -296,16 +280,7 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 			if err := json.Unmarshal(data2, &issue); err != nil {
 				return nil, fmt.Errorf("failed to decode response: %w", err)
 			}
-			if needsADF || len(removed) > 0 {
-				msgParts := []string{}
-				if needsADF {
-					msgParts = append(msgParts, "converted description to ADF format")
-				}
-				if len(removed) > 0 {
-					msgParts = append(msgParts, fmt.Sprintf("omitted unsupported custom fields: %v", removed))
-				}
-				fmt.Printf("Warning: %s\n", strings.Join(msgParts, "; "))
-			}
+			fmt.Printf("Warning: omitted unsupported custom fields: %v\n", removed)
 			return &issue, nil
 		}
 	}

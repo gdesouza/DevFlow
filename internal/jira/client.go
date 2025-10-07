@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"devflow/internal/config"
 )
@@ -197,19 +198,15 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 	if len(opts.Labels) > 0 {
 		fields["labels"] = opts.Labels
 	}
-	// Assignee handling (Jira Cloud now prefers accountId; using name may fail depending on config)
 	if opts.Assignee != "" {
 		fields["assignee"] = map[string]string{"name": opts.Assignee}
 	}
-	// Story points custom field is instance specific; common classic customfield_10016
 	if opts.StoryPoints > 0 {
 		fields["customfield_10016"] = opts.StoryPoints
 	}
-	// Epic linking varies; placeholder using common classic field customfield_10014
 	if opts.Epic != "" {
 		fields["customfield_10014"] = opts.Epic
 	}
-	// Sprint is also custom; commonly customfield_10020
 	if opts.Sprint != "" {
 		fields["customfield_10020"] = opts.Sprint
 	}
@@ -224,30 +221,68 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 		return resp, data, nil
 	}
 
+	toADF := func(text string) interface{} {
+		if strings.TrimSpace(text) == "" {
+			return map[string]interface{}{ // empty paragraph to satisfy schema
+				"type":    "doc",
+				"version": 1,
+				"content": []interface{}{map[string]interface{}{"type": "paragraph"}},
+			}
+		}
+		// Split lines into paragraphs
+		lines := strings.Split(text, "\n")
+		paragraphs := make([]interface{}, 0, len(lines))
+		for _, line := range lines {
+			line = strings.TrimRight(line, "\r")
+			if line == "" {
+				paragraphs = append(paragraphs, map[string]interface{}{"type": "paragraph"})
+				continue
+			}
+			paragraphs = append(paragraphs, map[string]interface{}{
+				"type": "paragraph",
+				"content": []interface{}{map[string]interface{}{
+					"type": "text",
+					"text": line,
+				}},
+			})
+		}
+		return map[string]interface{}{
+			"type":    "doc",
+			"version": 1,
+			"content": paragraphs,
+		}
+	}
+
 	resp, data, err := attempt(fields)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	// On 400, try removing invalid custom fields once
 	if resp.StatusCode == http.StatusBadRequest {
-		// Try to parse error JSON to detect invalid fields
 		var errPayload struct {
 			Errors map[string]string `json:"errors"`
 		}
 		_ = json.Unmarshal(data, &errPayload)
+
 		removed := []string{}
+		needsADF := false
+		// Detect unsupported custom fields
 		for _, cf := range []string{"customfield_10014", "customfield_10016", "customfield_10020"} {
-			if _, bad := errPayload.Errors[cf]; bad {
+			if msg, bad := errPayload.Errors[cf]; bad && msg != "" {
 				if _, present := fields[cf]; present {
 					delete(fields, cf)
 					removed = append(removed, cf)
 				}
 			}
 		}
-		if len(removed) > 0 {
-			// Retry without the offending fields
+		// Detect ADF requirement for description
+		if descMsg, ok := errPayload.Errors["description"]; ok && strings.Contains(strings.ToLower(descMsg), "atlassian document") {
+			fields["description"] = toADF(opts.Description)
+			needsADF = true
+		}
+
+		if needsADF || len(removed) > 0 {
 			resp.Body.Close()
 			resp2, data2, err2 := attempt(fields)
 			if err2 != nil {
@@ -261,8 +296,16 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 			if err := json.Unmarshal(data2, &issue); err != nil {
 				return nil, fmt.Errorf("failed to decode response: %w", err)
 			}
-			// Emit a warning to stdout so user knows some fields were skipped
-			fmt.Printf("Warning: omitted unsupported custom fields: %v\n", removed)
+			if needsADF || len(removed) > 0 {
+				msgParts := []string{}
+				if needsADF {
+					msgParts = append(msgParts, "converted description to ADF format")
+				}
+				if len(removed) > 0 {
+					msgParts = append(msgParts, fmt.Sprintf("omitted unsupported custom fields: %v", removed))
+				}
+				fmt.Printf("Warning: %s\n", strings.Join(msgParts, "; "))
+			}
 			return &issue, nil
 		}
 	}

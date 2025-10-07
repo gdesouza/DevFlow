@@ -82,6 +82,15 @@ func displayIssueDetails(issue *jira.IssueDetails) {
 		fmt.Printf("📝 Reporter: %s\n", issue.Fields.Reporter.DisplayName)
 	}
 
+	// Assigned Team
+	if issue.Fields.TeamAssigned.Name != "" || issue.Fields.TeamAssigned.ID != "" {
+		label := issue.Fields.TeamAssigned.Name
+		if label == "" {
+			label = issue.Fields.TeamAssigned.ID
+		}
+		fmt.Printf("👥 Assigned Team: %s (id: %s)\n", label, issue.Fields.TeamAssigned.ID)
+	}
+
 	// Created and Updated dates
 	if issue.Fields.Created != "" {
 		fmt.Printf("📅 Created: %s\n", issue.Fields.Created)

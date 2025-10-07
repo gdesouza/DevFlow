@@ -65,7 +65,11 @@ type IssueDetails struct {
 		Comment struct {
 			Comments []Comment `json:"comments"`
 		} `json:"comment"`
-		Attachment []Attachment `json:"attachment"`
+		Attachment   []Attachment `json:"attachment"`
+		TeamAssigned struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"customfield_11887"`
 	} `json:"fields"`
 }
 
@@ -143,7 +147,7 @@ func (c *Client) GetMyIssues() ([]Issue, error) {
 
 // GetIssueDetails retrieves detailed information about a specific issue
 func (c *Client) GetIssueDetails(issueKey string) (*IssueDetails, error) {
-	endpoint := fmt.Sprintf("issue/%s?fields=summary,description,status,priority,assignee,reporter,created,updated,comment,attachment", issueKey)
+	endpoint := fmt.Sprintf("issue/%s?fields=summary,description,status,priority,assignee,reporter,created,updated,comment,attachment,customfield_11887", issueKey)
 
 	resp, err := c.makeRequest("GET", endpoint, nil)
 	if err != nil {

@@ -312,6 +312,30 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 }
 
 // FindMentions searches for issues where the current user is mentioned
+func (c *Client) AddComment(issueKey, body string) error {
+	endpoint := fmt.Sprintf("issue/%s/comment", issueKey)
+	payload := map[string]interface{}{
+		"body": map[string]interface{}{
+			"type":    "doc",
+			"version": 1,
+			"content": []interface{}{map[string]interface{}{
+				"type":    "paragraph",
+				"content": []interface{}{map[string]interface{}{"type": "text", "text": body}},
+			}},
+		},
+	}
+	resp, err := c.makeRequest("POST", endpoint, payload)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		data, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API request failed with status: %d, body: %s", resp.StatusCode, string(data))
+	}
+	return nil
+}
+
 func (c *Client) FindMentions() ([]Issue, error) {
 	jql := fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", c.config.Username)
 	encodedJQL := url.QueryEscape(jql)

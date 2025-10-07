@@ -15,4 +15,5 @@ func init() {
 	tasksCmd.AddCommand(createTaskCmd)
 	tasksCmd.AddCommand(showIssueCmd)
 	tasksCmd.AddCommand(mentionedCmd)
+	tasksCmd.AddCommand(commentCmd)
 }

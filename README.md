@@ -6,9 +6,12 @@ A powerful command-line interface tool for streamlining development workflows wi
 
 ### Task Management (Jira Backend)
 - 📋 **List Tasks** - View your assigned Jira issues with filtering and sorting
-- 🔍 **Show Details** - Get comprehensive information about specific issues
+- 🔍 **Show Details** - Get comprehensive information about specific issues (now includes Assigned Team)
 - 💬 **Find Mentions** - Discover issues where you're mentioned in comments
-- ➕ **Create Tasks** - Quickly create new Jira issues
+- 💭 **Comment on Issues** - Add comments directly from the CLI
+- 🔗 **Add Remote Links** - Attach external docs / references to issues
+- ➕ **Create Tasks** - Quickly create new Jira issues (supports epic, story points, sprint, team, labels)
+- 👥 **Team Assignment** - Set issue Team via `--team` flag (ID or name)
 - 🎯 **Priority & Status** - Visual indicators for issue priority and status
 - 📊 **Advanced Filtering** - Filter by status, exclude done tasks, sort by priority
 - 🔗 **Direct Links** - Clickable URLs to open issues in your browser
@@ -190,6 +193,7 @@ The counts use a bounded ancestor traversal (max 2000 commits each side) rather 
 # - Status with icon
 # - Priority with icon
 # - Assignee and reporter
+# - Assigned Team (if present)
 # - Created and updated dates
 # - Full description
 # - All comments with timestamps
@@ -221,6 +225,7 @@ The counts use a bounded ancestor traversal (max 2000 commits each side) rather 
   --epic ENG-42 \
   --story-points 3 \
   --sprint Sprint-24 \
+  --team 11843 \
   --description "Adds new search endpoint with filtering"
 
 # Use a file for the description (mutually exclusive with --description)
@@ -236,13 +241,35 @@ Flags:
 - `--epic`: Epic key to link (depends on Jira setup / classic vs next-gen)
 - `--story-points`: Numeric estimate (mapped to a common story points custom field)
 - `--sprint`: Sprint name or ID (instance-specific custom field)
+- `--team`: Team ID or name (maps to custom team field; accepts numeric id or exact team name)
 - `-d, --description`: Inline description text
 - `--description-file`: Path to a file whose contents become the description
 
 Notes:
 - Do not supply both `--description` and `--description-file` (command will error).
-- Epic, Story Points, and Sprint rely on common custom field IDs (`customfield_10014`, `customfield_10016`, `customfield_10020`) which may differ in your Jira instance; if they do, creation may fail until field IDs are aligned in code (future enhancement: configurable field IDs).
+- Epic, Story Points, Sprint, and Team rely on specific custom field IDs which may differ in your Jira instance; if they do, creation may fail until field IDs are aligned in code (future enhancement: configurable field IDs).
+- The Team field accepts either the numeric ID (preferred) or the exact team name. If Jira rejects the value, the CLI automatically retries without the team field (logged in output).
 - Assignee resolution using `name` may not work on all Jira Cloud instances that require `accountId` (planned improvement).
+
+#### Comment on an Issue
+```bash
+# Add a simple comment
+./devflow tasks comment ISSUE-123 "This is now unblocked after deploying service X"
+
+# Use a file for a longer comment (supports markdown-ish formatting rendered as ADF)
+./devflow tasks comment ISSUE-123 --file docs/notes/analysis.md
+```
+
+#### Add a Remote Link
+```bash
+# Link an external spec document
+./devflow tasks link ISSUE-123 https://docs.internal/specs/auth-redesign.md \
+  --title "Auth Redesign Spec" \
+  --summary "Initial design draft for new authentication flow"
+
+# Minimal (just URL)
+./devflow tasks link ISSUE-123 https://example.com/incident/postmortem-42
+```
 
 ### Pull Request & Repo Commands
 

@@ -336,6 +336,32 @@ func (c *Client) AddComment(issueKey, body string) error {
 	return nil
 }
 
+func (c *Client) AddRemoteLink(issueKey, linkURL, title, summary string) error {
+	endpoint := fmt.Sprintf("issue/%s/remotelink", issueKey)
+	obj := map[string]interface{}{
+		"url": linkURL,
+	}
+	if title != "" {
+		obj["title"] = title
+	}
+	if summary != "" {
+		obj["summary"] = summary
+	}
+	payload := map[string]interface{}{
+		"object": obj,
+	}
+	resp, err := c.makeRequest("POST", endpoint, payload)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		data, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API request failed with status: %d, body: %s", resp.StatusCode, string(data))
+	}
+	return nil
+}
+
 func (c *Client) FindMentions() ([]Issue, error) {
 	jql := fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", c.config.Username)
 	encodedJQL := url.QueryEscape(jql)

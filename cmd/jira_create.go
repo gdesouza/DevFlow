@@ -22,6 +22,7 @@ var (
 	createEpic            string
 	createStoryPoints     float64
 	createSprint          string
+	createTeam            string
 	createDescription     string
 	createDescriptionFile string
 )
@@ -67,6 +68,7 @@ var createTaskCmd = &cobra.Command{
 			Epic:        createEpic,
 			StoryPoints: createStoryPoints,
 			Sprint:      createSprint,
+			Team:        createTeam,
 		})
 		if err != nil {
 			log.Fatalf("Failed to create Jira issue: %v", err)
@@ -86,6 +88,7 @@ func init() {
 	createTaskCmd.Flags().StringVar(&createEpic, "epic", "", "Epic key to link (depends on Jira setup)")
 	createTaskCmd.Flags().Float64Var(&createStoryPoints, "story-points", 0, "Story points estimate (will use common custom field id)")
 	createTaskCmd.Flags().StringVar(&createSprint, "sprint", "", "Sprint name or ID (depends on Jira setup)")
+	createTaskCmd.Flags().StringVar(&createTeam, "team", "", "Team name or ID for Team Assigned custom field")
 	createTaskCmd.Flags().StringVarP(&createDescription, "description", "d", "", "Issue description text")
 	createTaskCmd.Flags().StringVar(&createDescriptionFile, "description-file", "", "Path to file for description body")
 }

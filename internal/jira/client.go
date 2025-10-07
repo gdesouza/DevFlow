@@ -175,6 +175,7 @@ type CreateIssueOptions struct {
 	Epic        string
 	StoryPoints float64
 	Sprint      string
+	Team        string
 }
 
 // CreateIssue creates a new Jira issue with extended options
@@ -234,6 +235,9 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 	if opts.Sprint != "" {
 		fields["customfield_10020"] = opts.Sprint
 	}
+	if opts.Team != "" {
+		fields["customfield_11887"] = opts.Team
+	}
 
 	attempt := func(f map[string]interface{}) (*http.Response, []byte, error) {
 		body := map[string]interface{}{"fields": f}
@@ -258,7 +262,7 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 		_ = json.Unmarshal(data, &errPayload)
 
 		removed := []string{}
-		for _, cf := range []string{"customfield_10014", "customfield_10016", "customfield_10020"} {
+		for _, cf := range []string{"customfield_10014", "customfield_10016", "customfield_10020", "customfield_11887"} {
 			if msg, bad := errPayload.Errors[cf]; bad && msg != "" {
 				if _, present := fields[cf]; present {
 					delete(fields, cf)

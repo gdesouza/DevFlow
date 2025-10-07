@@ -127,7 +127,6 @@ func (c *Client) GetMyIssues() ([]Issue, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		// Read the response body to get more detailed error information
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 	}
@@ -163,22 +162,59 @@ func (c *Client) GetIssueDetails(issueKey string) (*IssueDetails, error) {
 	return &issue, nil
 }
 
-// CreateIssue creates a new Jira issue
-func (c *Client) CreateIssue(projectKey, summary, description string) (*Issue, error) {
+// CreateIssueOptions holds optional fields for issue creation
+type CreateIssueOptions struct {
+	ProjectKey  string
+	Summary     string
+	Description string
+	IssueType   string
+	Priority    string
+	Assignee    string
+	Labels      []string
+	Epic        string
+	StoryPoints float64
+	Sprint      string
+}
+
+// CreateIssue creates a new Jira issue with extended options
+func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 	endpoint := "issue"
 
-	body := map[string]interface{}{
-		"fields": map[string]interface{}{
-			"project": map[string]string{
-				"key": projectKey,
-			},
-			"summary":     summary,
-			"description": description,
-			"issuetype": map[string]string{
-				"name": "Task",
-			},
-		},
+	if opts.IssueType == "" {
+		opts.IssueType = "Task"
 	}
+
+	fields := map[string]interface{}{
+		"project":     map[string]string{"key": opts.ProjectKey},
+		"summary":     opts.Summary,
+		"description": opts.Description,
+		"issuetype":   map[string]string{"name": opts.IssueType},
+	}
+
+	if opts.Priority != "" {
+		fields["priority"] = map[string]string{"name": opts.Priority}
+	}
+	if len(opts.Labels) > 0 {
+		fields["labels"] = opts.Labels
+	}
+	// Assignee handling (Jira Cloud now prefers accountId; using name may fail depending on config)
+	if opts.Assignee != "" {
+		fields["assignee"] = map[string]string{"name": opts.Assignee}
+	}
+	// Story points custom field is instance specific; common classic customfield_10016
+	if opts.StoryPoints > 0 {
+		fields["customfield_10016"] = opts.StoryPoints
+	}
+	// Epic linking varies; placeholder using common classic field customfield_10014
+	if opts.Epic != "" {
+		fields["customfield_10014"] = opts.Epic
+	}
+	// Sprint is also custom; commonly customfield_10020
+	if opts.Sprint != "" {
+		fields["customfield_10020"] = opts.Sprint
+	}
+
+	body := map[string]interface{}{"fields": fields}
 
 	resp, err := c.makeRequest("POST", endpoint, body)
 	if err != nil {
@@ -187,7 +223,8 @@ func (c *Client) CreateIssue(projectKey, summary, description string) (*Issue, e
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("API request failed with status: %d", resp.StatusCode)
+		responseBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status: %d, body: %s", resp.StatusCode, string(responseBody))
 	}
 
 	var issue Issue
@@ -200,8 +237,6 @@ func (c *Client) CreateIssue(projectKey, summary, description string) (*Issue, e
 
 // FindMentions searches for issues where the current user is mentioned
 func (c *Client) FindMentions() ([]Issue, error) {
-	// Search for mentions in comments and descriptions
-	// Using text search to find mentions of the username
 	jql := fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", c.config.Username)
 	encodedJQL := url.QueryEscape(jql)
 	endpoint := fmt.Sprintf("search/jql?jql=%s&fields=key,summary,description,status,assignee,priority,updated&maxResults=50", encodedJQL)

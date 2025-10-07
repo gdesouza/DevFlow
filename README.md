@@ -209,11 +209,40 @@ The counts use a bounded ancestor traversal (max 2000 commits each side) rather 
 
 #### Create New Tasks
 ```bash
-# Create a new task
-./devflow tasks create "Fix login bug"
+# Minimum (project key is required)
+./devflow tasks create -p ENG "Fix login bug"
 
-# Note: Requires project key configuration
+# With common metadata
+./devflow tasks create -p ENG "Implement search API" \
+  --type Story \
+  --priority High \
+  --assignee alice \
+  --labels backend,api,search \
+  --epic ENG-42 \
+  --story-points 3 \
+  --sprint Sprint-24 \
+  --description "Adds new search endpoint with filtering"
+
+# Use a file for the description (mutually exclusive with --description)
+./devflow tasks create -p ENG "Refactor caching layer" --description-file docs/specs/cache-refactor.md
 ```
+
+Flags:
+- `-p, --project` (required): Jira project key (e.g. ENG, OPS)
+- `-t, --type`: Issue type (Task, Story, Bug, etc.; defaults to Task)
+- `--priority`: Priority name (Highest, High, Medium, Low, Lowest)
+- `--assignee`: Assignee username (may need accountId in some Jira Cloud setups)
+- `--labels`: Comma-separated labels (e.g. backend,api,urgent)
+- `--epic`: Epic key to link (depends on Jira setup / classic vs next-gen)
+- `--story-points`: Numeric estimate (mapped to a common story points custom field)
+- `--sprint`: Sprint name or ID (instance-specific custom field)
+- `-d, --description`: Inline description text
+- `--description-file`: Path to a file whose contents become the description
+
+Notes:
+- Do not supply both `--description` and `--description-file` (command will error).
+- Epic, Story Points, and Sprint rely on common custom field IDs (`customfield_10014`, `customfield_10016`, `customfield_10020`) which may differ in your Jira instance; if they do, creation may fail until field IDs are aligned in code (future enhancement: configurable field IDs).
+- Assignee resolution using `name` may not work on all Jira Cloud instances that require `accountId` (planned improvement).
 
 ### Pull Request & Repo Commands
 

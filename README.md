@@ -289,6 +289,30 @@ Interactive selection (refactored raw key navigation):
 #   q: quit without saving
 ```
 
+Show clone endpoints:
+```bash
+# Show HTTPS and SSH URLs (labeled)
+./devflow repo remotes my-repo
+
+# Only SSH (raw URL output)
+./devflow repo remotes --ssh my-repo
+
+# Only HTTPS (raw URL output)
+./devflow repo remotes --https my-repo
+```
+
+Search repositories:
+```bash
+# Regex match on repository name (case-insensitive by default)
+./devflow repo search 'api-.*'
+
+# Case sensitive
+./devflow repo search --case-sensitive 'API-[A-Z]+'
+
+# Include description in the match
+./devflow repo search -d 'terraform'
+```
+
 Direct watch management commands:
 ```bash
 # Add/remove/toggle/list watched repos

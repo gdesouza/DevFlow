@@ -19,6 +19,8 @@ var pullrequestCmd = &cobra.Command{
 
 func init() {
 	repoCmd.AddCommand(listReposCmd)
+	repoCmd.AddCommand(searchReposCmd)
+	repoCmd.AddCommand(remotesCmd)
 	pullrequestCmd.AddCommand(listPRsCmd)
 	pullrequestCmd.AddCommand(showPRCmd)
 	pullrequestCmd.AddCommand(myPRsCmd)

@@ -373,13 +373,13 @@ func printRepoStatuses(repos []gitRepoStatus) {
 	// Build table using go-pretty
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"Repository", "Branch", "State", "Dirty", "Stashed", "Ahead", "Behind", "Upstream"})
+	t.AppendHeader(table.Row{"Repository", "Branch", "State", "Dirty", "Stashed", "Ahead", "Behind"})
 	for _, r := range repos {
 		stashedVal := "no"
 		if r.Stashed {
 			stashedVal = "yes"
 		}
-		row := table.Row{truncate(r.Path, 55), truncate(r.Branch, 40), stateColor(r.State), dirtyColor(r.Dirty), stashedVal, r.Ahead, r.Behind, r.Upstream}
+		row := table.Row{truncate(r.Path, 55), truncate(r.Branch, 40), stateColor(r.State), dirtyColor(r.Dirty), stashedVal, r.Ahead, r.Behind}
 		t.AppendRow(row)
 	}
 	t.SetStyle(table.StyleRounded)

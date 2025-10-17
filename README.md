@@ -18,7 +18,7 @@ A powerful command-line interface tool for streamlining development workflows wi
 
 ### Bitbucket Integration ✅
 - 📝 **List Pull Requests** - View pull requests in your repositories
-- ➕ **Create Pull Requests** - Create new pull requests from the command line
+- ➕ **Create Pull Requests** - Description, reviewers, branch auto-detect, browser open
 - 🔐 **API Token Authentication** - Secure authentication with Bitbucket API tokens
 - 📊 **Repository Management** - Manage your Bitbucket repositories
 - 🔗 **Direct Links** - Clickable URLs to open pull requests in your browser
@@ -347,8 +347,8 @@ Current PR command behavior (scoped to watched repos):
 ./devflow pullrequest list --repo your-repo-name
 # Output includes 🔗 https://bitbucket.org/workspace/repo/pull-requests/ID
 
-# Create a pull request
-./devflow pullrequest create "Feature implementation" --repo your-repo-name --source feature-branch --dest main
+# Create a pull request (description, reviewers, auto-detect branches, browser open)
+./devflow pullrequest create "Feature implementation" --repo your-repo-name -m "Implements feature X" -R alice -R bob --open
 
 # (Authentication is validated automatically when running other commands)
 ```

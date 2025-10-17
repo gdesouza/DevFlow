@@ -20,10 +20,11 @@ type Client struct {
 }
 
 type PullRequest struct {
-	ID     int    `json:"id"`
-	Title  string `json:"title"`
-	State  string `json:"state"`
-	Author struct {
+	ID          int    `json:"id"`
+	Title       string `json:"title"`
+	State       string `json:"state"`
+	Description string `json:"description"`
+	Author      struct {
 		DisplayName string `json:"display_name"`
 	} `json:"author"`
 	Source struct {
@@ -36,6 +37,11 @@ type PullRequest struct {
 			Name string `json:"name"`
 		} `json:"branch"`
 	} `json:"destination"`
+	Links struct {
+		HTML struct {
+			Href string `json:"href"`
+		} `json:"html"`
+	} `json:"links"`
 }
 
 type PullRequestWithReviewers struct {
@@ -80,6 +86,9 @@ type Repository struct {
 	CreatedOn   string `json:"created_on"`
 	UpdatedOn   string `json:"updated_on"`
 	Size        int64  `json:"size"`
+	MainBranch  struct {
+		Name string `json:"name"`
+	} `json:"mainbranch"`
 }
 
 type RepositoriesResponse struct {
@@ -603,22 +612,53 @@ func (c *Client) getTotalRepositoryCount(size int) (int, error) {
 	return 50, nil // Conservative estimate
 }
 
-// CreatePullRequest creates a new pull request
-func (c *Client) CreatePullRequest(repoSlug, title, sourceBranch, destinationBranch string) (*PullRequest, error) {
+// GetRepositoryMainBranch returns the repository's main branch name or a fallback
+func (c *Client) GetRepositoryMainBranch(repoSlug string) (string, error) {
+	endpoint := fmt.Sprintf("repositories/%s/%s", c.config.Workspace, repoSlug)
+	resp, err := c.makeRequest("GET", endpoint, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+	}
+	var repo Repository
+	if err := json.NewDecoder(resp.Body).Decode(&repo); err != nil {
+		return "", fmt.Errorf("failed to decode repository response: %w", err)
+	}
+	if repo.MainBranch.Name != "" {
+		return repo.MainBranch.Name, nil
+	}
+	// Fallbacks if API does not supply mainbranch
+	return "main", nil
+}
+
+// CreatePullRequest creates a new pull request with description and reviewers
+func (c *Client) CreatePullRequest(repoSlug, title, description, sourceBranch, destinationBranch string, reviewers []string) (*PullRequest, error) {
 	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests", c.config.Workspace, repoSlug)
 
+	var reviewerObjs []map[string]string
+	for _, r := range reviewers {
+		if strings.TrimSpace(r) == "" {
+			continue
+		}
+		reviewerObjs = append(reviewerObjs, map[string]string{"username": r})
+	}
+
 	body := map[string]interface{}{
-		"title": title,
+		"title":       title,
+		"description": description,
 		"source": map[string]interface{}{
-			"branch": map[string]string{
-				"name": sourceBranch,
-			},
+			"branch": map[string]string{"name": sourceBranch},
 		},
 		"destination": map[string]interface{}{
-			"branch": map[string]string{
-				"name": destinationBranch,
-			},
+			"branch": map[string]string{"name": destinationBranch},
 		},
+	}
+	if len(reviewerObjs) > 0 {
+		body["reviewers"] = reviewerObjs
 	}
 
 	resp, err := c.makeRequest("POST", endpoint, body)
@@ -628,8 +668,8 @@ func (c *Client) CreatePullRequest(repoSlug, title, sourceBranch, destinationBra
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(respBody))
 	}
 
 	var pr PullRequest

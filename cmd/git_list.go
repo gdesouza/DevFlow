@@ -35,6 +35,7 @@ var (
 	gitListPath    string
 	gitListNoFetch bool
 	gitListJSON    bool
+	gitListTabular bool
 )
 
 var gitListCmd = &cobra.Command{
@@ -90,6 +91,22 @@ var gitListCmd = &cobra.Command{
 			jobs <- r
 		}
 		close(jobs)
+
+		// Streaming mode (default, when not tabular or JSON): print each repo as soon as processed
+		if !gitListTabular && !gitListJSON {
+			// Collect results concurrently via another goroutine
+			go func() {
+				wg.Wait()
+				close(results)
+			}()
+			stream := make([]gitRepoStatus, 0, len(repos))
+			for r := range results {
+				stream = append(stream, *r)
+				fmt.Printf("%s\t%s\t%s\n", r.Path, r.Branch, r.State)
+			}
+			return nil
+		}
+
 		wg.Wait()
 		close(results)
 		slices := make([]gitRepoStatus, 0, len(repos))
@@ -122,7 +139,8 @@ func init() {
 
 	gitListCmd.Flags().StringVarP(&gitListPath, "path", "p", ".", "Root path to search recursively for git repositories")
 	gitListCmd.Flags().BoolVar(&gitListNoFetch, "no-fetch", false, "Do not run 'git fetch' (faster, but may show stale upstream info)")
-	gitListCmd.Flags().BoolVar(&gitListJSON, "json", false, "Output JSON instead of a table")
+	gitListCmd.Flags().BoolVar(&gitListJSON, "json", false, "Output JSON list")
+	gitListCmd.Flags().BoolVar(&gitListTabular, "tabular", false, "Render full table (waits for all repos)")
 }
 
 func discoverGitRepos(root string) ([]string, error) {

@@ -147,15 +147,15 @@ sandbox/prototype	main	no-upstream
 
 Sample table output (`--tabular`):
 ```
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
-┃ Repository                           ┃ Branch   ┃ State      ┃ Dirty ┃ Ahead ┃ Behind ┃ Upstream     ┃
-┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━╋━━━━━━━╋━━━━━━━━╋━━━━━━━━━━━━━━┫
-┃ api                                  ┃ main     ┃ up-to-date ┃ clean ┃ 0     ┃ 0      ┃ origin/main  ┃
-┃ web                                  ┃ featureX ┃ ahead      ┃ dirty ┃ 2     ┃ 0      ┃ origin/main  ┃
-┃ infra/terraform/modules/network      ┃ main     ┃ behind     ┃ clean ┃ 0     ┃ 3      ┃ origin/main  ┃
-┃ tools/old-experiment                 ┃ DETACHED ┃ detached   ┃ clean ┃ 0     ┃ 0      ┃              ┃
-┃ sandbox/prototype                    ┃ main     ┃ no-upstream┃ dirty ┃ 0     ┃ 0      ┃              ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━┻━━━━━━━┻━━━━━━━━┻━━━━━━━━━━━━━━┛
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Repository                           ┃ Branch   ┃ State      ┃ Dirty ┃ Stashed ┃ Ahead ┃ Behind ┃ Upstream     ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━╋━━━━━━━━━╋━━━━━━━╋━━━━━━━╋━━━━━━━━━━━━━━┫
+┃ api                                  ┃ main     ┃ up-to-date ┃ clean ┃ no      ┃ 0     ┃ 0      ┃ origin/main  ┃
+┃ web                                  ┃ featureX ┃ ahead      ┃ dirty ┃ yes     ┃ 2     ┃ 0      ┃ origin/main  ┃
+┃ infra/terraform/modules/network      ┃ main     ┃ behind     ┃ clean ┃ no      ┃ 0     ┃ 3      ┃ origin/main  ┃
+┃ tools/old-experiment                 ┃ DETACHED ┃ detached   ┃ clean ┃ no      ┃ 0     ┃ 0      ┃              ┃
+┃ sandbox/prototype                    ┃ main     ┃ no-upstream┃ dirty ┃ no      ┃ 0     ┃ 0      ┃              ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━┻━━━━━━━━━┻━━━━━━━┻━━━━━━━┻━━━━━━━━━━━━━━┛
 ```
 
 States:

@@ -26,6 +26,7 @@ type gitRepoStatus struct {
 	Branch   string `json:"branch"`
 	State    string `json:"state"`
 	Dirty    bool   `json:"dirty"`
+	Stashed  bool   `json:"stashed"`
 	Ahead    int    `json:"ahead"`
 	Behind   int    `json:"behind"`
 	Upstream string `json:"upstream"`
@@ -203,6 +204,13 @@ func evaluateRepo(root, repoPath string, doFetch bool) *gitRepoStatus {
 			st.Dirty = !status.IsClean()
 		}
 	}
+	// Stash detection: presence of refs/stash file or stash reflog entries
+	gitDir := filepath.Join(repoPath, ".git")
+	if fi, err := os.Stat(filepath.Join(gitDir, "logs", "refs", "stash")); err == nil && !fi.IsDir() {
+		st.Stashed = true
+	} else if fi, err := os.Stat(filepath.Join(gitDir, "refs", "stash")); err == nil && !fi.IsDir() {
+		st.Stashed = true
+	}
 
 	// Ahead/Behind computation
 	if upstream == "" && branchName == "DETACHED" {
@@ -365,9 +373,13 @@ func printRepoStatuses(repos []gitRepoStatus) {
 	// Build table using go-pretty
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"Repository", "Branch", "State", "Dirty", "Ahead", "Behind", "Upstream"})
+	t.AppendHeader(table.Row{"Repository", "Branch", "State", "Dirty", "Stashed", "Ahead", "Behind", "Upstream"})
 	for _, r := range repos {
-		row := table.Row{truncate(r.Path, 55), truncate(r.Branch, 40), stateColor(r.State), dirtyColor(r.Dirty), r.Ahead, r.Behind, r.Upstream}
+		stashedVal := "no"
+		if r.Stashed {
+			stashedVal = "yes"
+		}
+		row := table.Row{truncate(r.Path, 55), truncate(r.Branch, 40), stateColor(r.State), dirtyColor(r.Dirty), stashedVal, r.Ahead, r.Behind, r.Upstream}
 		t.AppendRow(row)
 	}
 	t.SetStyle(table.StyleRounded)

@@ -69,7 +69,7 @@ make install
 export PATH="$HOME/go/bin:$PATH"
 ```
 
-**Note:** `make install` installs the binary to `~/go/bin/devflow` with the latest release version embedded. For development or custom builds, see the Development section below.
+**Note:** Version is injected at build time. The source file `cmd/version.go` intentionally sets `var version = "dev"`; release builds override this via `-ldflags "-X 'devflow/cmd.version=vX.Y.Z'"` (see Makefile). `make install` installs the binary to `~/go/bin/devflow` embedding the latest git tag release version. For development builds (`make build`) the CLI will report `dev`. To install a specific tagged release: `make install VERSION=v1.3.3`. Avoid manually editing `version.go` for releases.
 
 ### 2. Configuration
 

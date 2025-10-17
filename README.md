@@ -117,8 +117,10 @@ Set up your API credentials:
 
 List and inspect the sync status of all git repositories under a directory (recursively). Shows branch, sync state, dirtiness, ahead/behind counts (approximate), and upstream tracking branch.
 
+Default output now streams each repository line-by-line as soon as it is processed (faster feedback on large trees). Use `--tabular` to wait for all results and render the full table. JSON remains available with `--json`.
+
 ```bash
-# Basic usage (current directory)
+# Basic usage (current directory) - streaming lines: path<TAB>branch<TAB>state
 ./devflow git list
 
 # Specify a root path to scan
@@ -127,12 +129,23 @@ List and inspect the sync status of all git repositories under a directory (recu
 # Skip fetching remotes (faster, may be stale)
 ./devflow git list --no-fetch
 
+# Full table (waits for all repos)
+./devflow git list --tabular
+
 # JSON output for scripting
 ./devflow git list --json > repos.json
 ```
 
-Sample table output:
+Sample streaming lines:
+```
+api	main	up-to-date
+web	featureX	ahead
+infra/terraform/modules/network	main	behind
+tools/old-experiment	DETACHED	detached
+sandbox/prototype	main	no-upstream
+```
 
+Sample table output (`--tabular`):
 ```
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
 ┃ Repository                           ┃ Branch   ┃ State      ┃ Dirty ┃ Ahead ┃ Behind ┃ Upstream     ┃

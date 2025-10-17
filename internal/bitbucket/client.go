@@ -17,6 +17,7 @@ type Client struct {
 	config      *config.BitbucketConfig
 	httpClient  *http.Client
 	rateLimiter chan struct{}
+	baseURL     string
 }
 
 type PullRequest struct {
@@ -149,6 +150,7 @@ func NewClient(cfg *config.BitbucketConfig) *Client {
 		config:      cfg,
 		httpClient:  &http.Client{},
 		rateLimiter: rateLimiter,
+		baseURL:     "https://api.bitbucket.org/2.0",
 	}
 }
 
@@ -157,7 +159,7 @@ func (c *Client) makeRequest(method, endpoint string, body interface{}) (*http.R
 }
 
 func (c *Client) makeRequestWithRetry(method, endpoint string, body interface{}, maxRetries int) (*http.Response, error) {
-	url := fmt.Sprintf("https://api.bitbucket.org/2.0/%s", endpoint)
+	url := fmt.Sprintf("%s/%s", c.baseURL, endpoint)
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		// Rate limiting
@@ -678,4 +680,27 @@ func (c *Client) CreatePullRequest(repoSlug, title, description, sourceBranch, d
 	}
 
 	return &pr, nil
+}
+
+// GetRepositoryReadme fetches README file content if present.
+// Returns the matched filename and its contents.
+func (c *Client) GetRepositoryReadme(repoSlug string) (string, string, error) {
+	candidates := []string{
+		"README.md", "README.MD", "Readme.md", "readme.md",
+		"README.markdown", "README.txt", "README", "readme", "Readme",
+	}
+	for _, name := range candidates {
+		endpoint := fmt.Sprintf("repositories/%s/%s/src/HEAD/%s", c.config.Workspace, repoSlug, name)
+		resp, err := c.makeRequest("GET", endpoint, nil)
+		if err != nil {
+			continue
+		}
+		if resp.StatusCode == http.StatusOK {
+			data, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return name, string(data), nil
+		}
+		resp.Body.Close()
+	}
+	return "", "", fmt.Errorf("no README found in repository %s", repoSlug)
 }

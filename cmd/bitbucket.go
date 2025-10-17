@@ -7,7 +7,15 @@ import (
 var repoCmd = &cobra.Command{
 	Use:   "repo",
 	Short: "Repository operations",
-	Long:  `Manage Bitbucket repositories`,
+	Long: `Manage Bitbucket repositories.
+
+Subcommands:
+  list        List workspace repositories (pagination & interactive)
+  search      Regex search repositories by name (and optional description)
+  remotes     Show HTTPS/SSH clone URLs for a repository
+  readme      Display repository README contents (tries common filenames)
+  watch       Manage watched repositories (add/remove/toggle/list)
+`,
 }
 
 var pullrequestCmd = &cobra.Command{
@@ -21,6 +29,7 @@ func init() {
 	repoCmd.AddCommand(listReposCmd)
 	repoCmd.AddCommand(searchReposCmd)
 	repoCmd.AddCommand(remotesCmd)
+	repoCmd.AddCommand(readmeCmd)
 	pullrequestCmd.AddCommand(listPRsCmd)
 	pullrequestCmd.AddCommand(showPRCmd)
 	pullrequestCmd.AddCommand(myPRsCmd)

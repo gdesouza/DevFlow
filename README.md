@@ -19,9 +19,20 @@ A powerful command-line interface tool for streamlining development workflows wi
 ### Bitbucket Integration ✅
 - 📝 **List Pull Requests** - View pull requests in your repositories
 - ➕ **Create Pull Requests** - Description, reviewers, branch auto-detect, browser open
+- 📖 **Show Repository README** - Display README contents for a repository
 - 🔐 **API Token Authentication** - Secure authentication with Bitbucket API tokens
 - 📊 **Repository Management** - Manage your Bitbucket repositories
 - 🔗 **Direct Links** - Clickable URLs to open pull requests in your browser
+
+#### Repository Commands Summary
+`devflow repo` provides:
+- `list` – Paginated listing (optional interactive UI) with watch toggling
+- `search` – Regex-based search by name (optionally description)
+- `remotes` – Show HTTPS/SSH clone URLs (single or both)
+- `readme` – Fetch and display README contents
+- `watch` – Add/remove/toggle/list watched repositories
+
+Watched repositories scope pull request aggregation and targeted operations.
 
 ### Configuration Management
 - 🔐 **Secure Storage** - API tokens stored securely in your home directory
@@ -286,6 +297,13 @@ Notes:
 
 ### Pull Request & Repo Commands
 
+#### Show Repository README (New)
+Display the README for a Bitbucket repository (tries common filename variants)
+```bash
+./devflow repo readme my-repo
+./devflow repo readme my-repo --raw   # raw contents only (no header)
+```
+
 #### Watched Repositories (New)
 Mark repositories as "watched" to scope pull request commands.
 
@@ -442,6 +460,7 @@ devflow/
 │   ├── jira_create.go          # Create new tasks
 │   ├── bitbucket.go            # Repo & Pull Request command groups
 │   ├── bitbucket_list.go       # List pull requests
+│   ├── bitbucket_readme.go     # Show repository README
 │   ├── bitbucket_create.go     # Create pull requests
 │   ├── config.go               # Config command group
 │   ├── config_set.go           # Set configuration

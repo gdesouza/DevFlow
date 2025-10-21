@@ -80,7 +80,11 @@ Displays per-commit status including state, key/name, and URL.`,
 				if name == "" {
 					name = st.Key
 				}
-				fmt.Printf("  %s %s - %s\n", icon, st.State, name)
+				display := name
+				if st.Name != "" && st.Key != "" && st.Name != st.Key {
+					display = fmt.Sprintf("%s (%s)", st.Name, st.Key)
+				}
+				fmt.Printf("  %s %s - %s\n", icon, st.State, display)
 				if st.Description != "" {
 					fmt.Printf("    %s\n", firstLine(st.Description))
 				}

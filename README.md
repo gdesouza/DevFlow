@@ -388,19 +388,22 @@ Current PR command behavior (scoped to watched repos):
 # Found 2 commits. Fetching statuses...
 # Commit 1/2: a1b2c3d4e5f6 - Add integration test
 # Author: Alice <alice@example.com>  Date: 2025-10-20T14:22:11+00:00
-#   🔄 INPROGRESS - build
+#   🔄 INPROGRESS - build (ci/pipeline)
 #     Running CI pipeline
 #     🔗 https://bitbucket.org/workspace/your-repo-name/addon/pipelines/home#!/results/123
 #     Updated: 3m ago
-#   ✅ SUCCESSFUL - lint
+#   ✅ SUCCESSFUL - lint (lint/check)
 #     Updated: 3m ago
 #
 # Commit 2/2: 0f1e2d3c4b5a - Refactor handlers
 # Author: Bob <bob@example.com>  Date: 2025-10-20T15:02:48+00:00
-#   ✅ SUCCESSFUL - build
+#   ✅ SUCCESSFUL - build (ci/pipeline)
 #     🔗 https://bitbucket.org/workspace/your-repo-name/addon/pipelines/home#!/results/124
 #     Updated: 2m ago
 #
+# Status Key: value in parentheses (e.g. ci/pipeline) is the unique upsert key to reuse with `pullrequest set-status`.
+# If a status shows only one value (no parentheses) key == name.
+# To discover a key outside the CLI, open the Bitbucket Pipelines build/log page; the key often matches the pipeline step or integration identifier.
 # Status Icons Legend:
 #   ✅ SUCCESSFUL   ❌ FAILED/ERROR   🔄 INPROGRESS/PENDING   🚫 STOPPED/CANCELLED   📝 Other
 # (Authentication is validated automatically when running other commands)

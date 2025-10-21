@@ -774,3 +774,30 @@ func (c *Client) GetCommitStatuses(repoSlug, commitHash string) ([]CommitStatus,
 	}
 	return statusesResp.Values, nil
 }
+
+// SetCommitStatus creates or updates a build/status for a commit.
+// Bitbucket upserts a status when the same key is reused.
+func (c *Client) SetCommitStatus(repoSlug, commitHash, state, key, name, urlStr, description string) (*CommitStatus, error) {
+	endpoint := fmt.Sprintf("repositories/%s/%s/commit/%s/statuses/build", c.config.Workspace, repoSlug, commitHash)
+	payload := map[string]string{
+		"state":       state,
+		"key":         key,
+		"name":        name,
+		"url":         urlStr,
+		"description": description,
+	}
+	resp, err := c.makeRequest("POST", endpoint, payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+	}
+	var status CommitStatus
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return &status, nil
+}

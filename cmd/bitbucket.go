@@ -36,4 +36,5 @@ func init() {
 	pullrequestCmd.AddCommand(createPRCmd)
 	pullrequestCmd.AddCommand(participatingCmd)
 	pullrequestCmd.AddCommand(buildsCmd)
+	pullrequestCmd.AddCommand(setStatusCmd)
 }

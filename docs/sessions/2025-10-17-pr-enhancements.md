@@ -89,6 +89,9 @@ None in this session (follow-up opportunity: unit test for `GetRepositoryMainBra
 ## Follow-up Enhancement (2025-10-21)
 Added `pullrequest builds` command to surface per-commit build/status checks.
 
+### Follow-up Enhancement (2025-10-21, later)
+Implemented `pullrequest set-status` command enabling creation or update of commit build/status entries directly from the CLI (Bitbucket upserts on identical key). Includes input validation (state allowlist, key length, URL parsing) and user-friendly output with icons and relative timestamps.
+
 ### API Endpoints Utilized
 - `/2.0/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}/commits` to enumerate commits
 - `/2.0/repositories/{workspace}/{repo_slug}/commit/{commit_hash}/statuses` to retrieve statuses

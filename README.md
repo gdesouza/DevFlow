@@ -406,6 +406,20 @@ Current PR command behavior (scoped to watched repos):
 # (Authentication is validated automatically when running other commands)
 ```
 
+#### Set or Update a Commit Status (New)
+Create or update a build/deployment/check status for a specific commit (upsert by key):
+```bash
+devflow pullrequest set-status your-repo-name a1b2c3d4e5f6 \
+  --state SUCCESSFUL \
+  --key ci/pipeline \
+  --name "CI Pipeline" \
+  --url https://ci.example.com/build/42 \
+  --description "All tests passed"
+```
+States: SUCCESSFUL, FAILED, INPROGRESS, STOPPED, ERROR, PENDING, CANCELLED
+Reusing the same `--key` updates the existing status entry.
+
+
 ### Configuration Commands
 
 ```bash

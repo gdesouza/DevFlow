@@ -1,4 +1,5 @@
 # DevFlow
+[![Build Status](https://gdesouza.semaphoreci.com/badges/DevFlow/branches/master.svg?style=shields&key=dbff7292-7a82-4922-b626-72eefeef5b82)](https://gdesouza.semaphoreci.com/projects/DevFlow)
 
 A powerful command-line interface tool for streamlining development workflows with Jira and Bitbucket. Perfect for developers who want to manage tasks and repositories from the terminal.
 

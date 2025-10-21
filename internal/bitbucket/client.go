@@ -704,3 +704,73 @@ func (c *Client) GetRepositoryReadme(repoSlug string) (string, string, error) {
 	}
 	return "", "", fmt.Errorf("no README found in repository %s", repoSlug)
 }
+
+// Commit represents a commit associated with a pull request.
+type Commit struct {
+	Hash    string `json:"hash"`
+	Message string `json:"message"`
+	Date    string `json:"date"`
+	Author  struct {
+		Raw string `json:"raw"`
+	} `json:"author"`
+}
+
+// CommitsResponse is the API response for pull request commits.
+type CommitsResponse struct {
+	Values []Commit `json:"values"`
+}
+
+// CommitStatus represents a build/deployment/status associated with a commit.
+type CommitStatus struct {
+	State       string `json:"state"`
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	URL         string `json:"url"`
+	Description string `json:"description"`
+	CreatedOn   string `json:"created_on"`
+	UpdatedOn   string `json:"updated_on"`
+	Type        string `json:"type"`
+}
+
+// CommitStatusesResponse is the API response for commit statuses.
+type CommitStatusesResponse struct {
+	Values []CommitStatus `json:"values"`
+}
+
+// GetPullRequestCommits retrieves commits for a given pull request.
+func (c *Client) GetPullRequestCommits(repoSlug string, prID int) ([]Commit, error) {
+	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests/%d/commits", c.config.Workspace, repoSlug, prID)
+	resp, err := c.makeRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+	}
+	var commitsResp CommitsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&commitsResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return commitsResp.Values, nil
+}
+
+// GetCommitStatuses retrieves build/status information for a given commit hash.
+func (c *Client) GetCommitStatuses(repoSlug, commitHash string) ([]CommitStatus, error) {
+	endpoint := fmt.Sprintf("repositories/%s/%s/commit/%s/statuses", c.config.Workspace, repoSlug, commitHash)
+	resp, err := c.makeRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+	}
+	var statusesResp CommitStatusesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&statusesResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return statusesResp.Values, nil
+}

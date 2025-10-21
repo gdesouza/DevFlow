@@ -1,0 +1,88 @@
+package bitbucket
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"devflow/internal/config"
+)
+
+// mockServer helps simulate Bitbucket API responses for specific endpoints.
+func mockServer(t *testing.T, handlers map[string]http.HandlerFunc) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if h, ok := handlers[r.URL.Path]; ok {
+			h(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+}
+
+func TestGetPullRequestCommits(t *testing.T) {
+	// Prepare mock response
+	commitsResp := CommitsResponse{Values: []Commit{
+		{Hash: "abcdef123456", Message: "Add feature X", Date: "2025-10-20T12:00:00+00:00", Author: struct {
+			Raw string `json:"raw"`
+		}{Raw: "Alice <alice@example.com>"}},
+		{Hash: "deadbeef98765", Message: "Refactor module", Date: "2025-10-20T13:00:00+00:00", Author: struct {
+			Raw string `json:"raw"`
+		}{Raw: "Bob <bob@example.com>"}},
+	}}
+	data, _ := json.Marshal(commitsResp)
+
+	server := mockServer(t, map[string]http.HandlerFunc{
+		"/2.0/repositories/workspace/repo/pullrequests/42/commits": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write(data)
+		},
+	})
+	t.Cleanup(server.Close)
+
+	cfg := &config.BitbucketConfig{Workspace: "workspace", Token: "token"}
+	client := NewClient(cfg)
+	client.baseURL = server.URL + "/2.0" // point client to mock server
+
+	commits, err := client.GetPullRequestCommits("repo", 42)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(commits) != 2 {
+		t.Fatalf("expected 2 commits, got %d", len(commits))
+	}
+	if commits[0].Hash != "abcdef123456" {
+		t.Errorf("unexpected first commit hash: %s", commits[0].Hash)
+	}
+}
+
+func TestGetCommitStatuses(t *testing.T) {
+	statusesResp := CommitStatusesResponse{Values: []CommitStatus{
+		{State: "SUCCESSFUL", Key: "build", Name: "CI Build", URL: "https://ci.example.com/build/1", Description: "Build succeeded", UpdatedOn: "2025-10-20T12:34:56+00:00", Type: "build"},
+		{State: "INPROGRESS", Key: "deploy", Name: "Deploy Staging", URL: "https://ci.example.com/deploy/2", Description: "Deploying to staging", UpdatedOn: "2025-10-20T12:35:10+00:00", Type: "deployment"},
+	}}
+	data, _ := json.Marshal(statusesResp)
+
+	server := mockServer(t, map[string]http.HandlerFunc{
+		"/2.0/repositories/workspace/repo/commit/abcdef123/statuses": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write(data)
+		},
+	})
+	t.Cleanup(server.Close)
+
+	cfg := &config.BitbucketConfig{Workspace: "workspace", Token: "token"}
+	client := NewClient(cfg)
+	client.baseURL = server.URL + "/2.0"
+
+	statuses, err := client.GetCommitStatuses("repo", "abcdef123")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(statuses) != 2 {
+		t.Fatalf("expected 2 statuses, got %d", len(statuses))
+	}
+	if statuses[0].State != "SUCCESSFUL" {
+		t.Errorf("expected first status SUCCESSFUL, got %s", statuses[0].State)
+	}
+}

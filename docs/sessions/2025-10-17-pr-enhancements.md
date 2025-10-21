@@ -86,6 +86,30 @@ None in this session (follow-up opportunity: unit test for `GetRepositoryMainBra
 - Add flag for draft PR creation if Bitbucket API supports it.
 - Support updating existing PRs (edit command) for reviewers/description.
 
+## Follow-up Enhancement (2025-10-21)
+Added `pullrequest builds` command to surface per-commit build/status checks.
+
+### API Endpoints Utilized
+- `/2.0/repositories/{workspace}/{repo_slug}/pullrequests/{pr_id}/commits` to enumerate commits
+- `/2.0/repositories/{workspace}/{repo_slug}/commit/{commit_hash}/statuses` to retrieve statuses
+
+### Data Structures Added
+- `Commit` (hash, message, author raw, date)
+- `CommitStatus` (state, key, name, url, description, updated_on)
+
+### CLI Behavior
+- Fetches all PR commits then iterates, querying statuses per commit
+- Displays concise per-status lines with icon, state, name/key, description first line, link, and relative age
+- Provides state icon mapping for SUCCESSFUL, FAILED/ERROR, INPROGRESS/PENDING, STOPPED/CANCELLED, default fallback
+
+### Performance Considerations
+- Sequential per-commit status requests; acceptable for typical PR sizes (<20 commits). Future optimization: batch or concurrency with rate limit awareness.
+
+### Future Improvements
+- Add JSON output flag for scripting CI verification
+- Collapse identical status keys across multiple commits (summary mode)
+- Support filtering by state (e.g. show only FAILED)
+
 ## Related Commits
 - `fa44ace`: feat(bitbucket): enhance PR creation (description, reviewers, branch auto-detect, open flag, link output); bump version v1.3.0
 

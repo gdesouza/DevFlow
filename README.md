@@ -415,12 +415,11 @@ Create or update a build/deployment/check status for a specific commit (upsert b
 devflow pullrequest set-status your-repo-name a1b2c3d4e5f6 \
   --state SUCCESSFUL \
   --key ci/pipeline \
-  --name "CI Pipeline" \
-  --url https://ci.example.com/build/42 \
   --description "All tests passed"
 ```
 States: SUCCESSFUL, FAILED, INPROGRESS, STOPPED, ERROR, PENDING, CANCELLED
 Reusing the same `--key` updates the existing status entry.
+If you omit --name or --url they will be reused from an existing status (if present) or default (name=key). --description is optional; omit it to keep existing text.
 
 
 ### Configuration Commands

@@ -22,8 +22,10 @@ var setStatusCmd = &cobra.Command{
 	Short:   "Create or update a build/status for a commit",
 	Long: `Create or update a Bitbucket commit status (build/deployment/check).
 
-Examples:
-  devflow pullrequest set-status my-repo abcdef123456 --state SUCCESSFUL --key ci/pipeline --name "CI Pipeline" --url https://ci.example.com/build/42 --description "All tests passed"
+Minimal usage (auto-fill details):
+  devflow pullrequest set-status my-repo <commit-sha> --state SUCCESSFUL --key ci/pipeline --description "All tests passed"
+
+If a status with the given key already exists for the commit and you omit --name / --url / --description, existing values are reused. When creating a new status and --name is omitted it defaults to the key.
 
 States: SUCCESSFUL, FAILED, INPROGRESS, STOPPED, ERROR, PENDING, CANCELLED
 Reusing the same --key upserts (updates) the existing status.`,

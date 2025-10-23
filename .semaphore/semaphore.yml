@@ -19,9 +19,8 @@ blocks:
             - go install gotest.tools/gotestsum@latest
             - gotestsum --junitfile test_results.junit.xml -- -race -covermode=atomic -coverprofile=coverage.out ./...
             - go build -v .
-            - pip3 install --user codecovcli
+            - pip3 install --user codecov-cli
             - codecovcli do-upload --report-type test_results --file test_results.junit.xml --token "$CODECOV_TOKEN"
             - codecovcli upload-process --token "$CODECOV_TOKEN"
       secrets:
-        - name: "Codecov token"
-
+        - name: Codecov token

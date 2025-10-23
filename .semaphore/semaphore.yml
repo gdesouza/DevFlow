@@ -16,5 +16,8 @@ blocks:
             - 'export PATH=/home/semaphore/go/bin:$PATH'
             - checkout
             - go get ./...
-            - go test ./...
+            - go test -v -coverprofile=coverage.out ./...
             - go build -v .
+            - curl -Os https://uploader.codecov.io/latest/linux/codecov
+            - chmod +x codecov
+            - ./codecov

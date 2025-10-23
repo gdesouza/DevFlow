@@ -15,11 +15,10 @@ blocks:
             - export GOPATH=~/go
             - 'export PATH=/home/semaphore/go/bin:$PATH'
             - checkout
-            - go get ./...
-            - go test -v -coverprofile=coverage.out ./...
+            - go mod download
+            - go test -race -covermode=atomic -coverprofile=coverage.out ./...
             - go build -v .
-            - 'curl -Os https://uploader.codecov.io/latest/linux/codecov'
-            - chmod +x codecov
-            - ./codecov -f coverage.out
+            - 'curl -s https://codecov.io/bash | bash -s -- -f coverage.out -t "$CODECOV_TOKEN"'
       secrets:
-        - name: Codecov token
+        - name: CODECOV_TOKEN
+

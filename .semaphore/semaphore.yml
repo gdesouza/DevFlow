@@ -20,5 +20,5 @@ blocks:
             - go build -v .
             - 'curl -s https://codecov.io/bash | bash -s -- -f coverage.out -t "$CODECOV_TOKEN"'
       secrets:
-        - name: CODECOV_TOKEN
+        - name: "Codecov token"
 

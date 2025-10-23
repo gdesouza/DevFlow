@@ -18,6 +18,8 @@ blocks:
             - go get ./...
             - go test -v -coverprofile=coverage.out ./...
             - go build -v .
-            - curl -Os https://uploader.codecov.io/latest/linux/codecov
+            - 'curl -Os https://uploader.codecov.io/latest/linux/codecov'
             - chmod +x codecov
             - ./codecov
+      secrets:
+        - name: Codecov token

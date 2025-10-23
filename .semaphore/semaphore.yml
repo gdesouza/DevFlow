@@ -20,6 +20,6 @@ blocks:
             - go build -v .
             - 'curl -Os https://uploader.codecov.io/latest/linux/codecov'
             - chmod +x codecov
-            - ./codecov
+            - ./codecov -f coverage.out
       secrets:
         - name: Codecov token

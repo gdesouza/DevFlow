@@ -16,6 +16,10 @@ var (
 	showPriority bool
 	showSprint   bool
 	excludeDone  bool
+	// Search flags
+	searchQuery string
+	searchJQL   string
+	maxResults  int
 )
 
 var listTasksCmd = &cobra.Command{
@@ -44,9 +48,28 @@ var listTasksCmd = &cobra.Command{
 		client := jira.NewClient(&cfg.Jira)
 
 		// Get issues
-		issues, err := client.GetMyIssues()
-		if err != nil {
-			log.Fatalf("Error fetching Jira issues: %v", err)
+		var issues []jira.Issue
+		if searchJQL != "" {
+			// Raw JQL provided
+			iss, err := client.Search(searchJQL, true, maxResults)
+			if err != nil {
+				log.Fatalf("Error searching Jira issues with JQL: %v", err)
+			}
+			issues = iss
+		} else if searchQuery != "" {
+			// Free text search
+			iss, err := client.Search(searchQuery, false, maxResults)
+			if err != nil {
+				log.Fatalf("Error searching Jira issues: %v", err)
+			}
+			issues = iss
+		} else {
+			// Default: issues assigned to current user
+			iss, err := client.GetMyIssues()
+			if err != nil {
+				log.Fatalf("Error fetching Jira issues: %v", err)
+			}
+			issues = iss
 		}
 
 		// Apply filters
@@ -96,6 +119,10 @@ func init() {
 	listTasksCmd.Flags().BoolVarP(&showPriority, "priority", "p", false, "Show task priority")
 	listTasksCmd.Flags().BoolVarP(&showSprint, "sprint", "r", false, "Show sprint information")
 	listTasksCmd.Flags().BoolVar(&excludeDone, "exclude-done", false, "Exclude completed/done tasks")
+	// Search flags
+	listTasksCmd.Flags().StringVarP(&searchQuery, "query", "q", "", "Free-text search query (will be converted to JQL)")
+	listTasksCmd.Flags().StringVar(&searchJQL, "jql", "", "Raw JQL query (takes precedence over --query)")
+	listTasksCmd.Flags().IntVar(&maxResults, "max-results", 0, "Maximum number of results to return (0 = use server default)")
 }
 
 // filterIssues filters issues based on status and exclude done flag

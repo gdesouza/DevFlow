@@ -120,11 +120,28 @@ func (c *Client) makeRequest(method, endpoint string, body interface{}) (*http.R
 	return c.httpClient.Do(req)
 }
 
-// GetMyIssues retrieves issues assigned to the current user
-func (c *Client) GetMyIssues() ([]Issue, error) {
-	jql := "assignee = currentUser() ORDER BY updated DESC"
+// Search performs a Jira search using either raw JQL or a free-text query.
+// If isJQL is true, the provided query is used as JQL directly. Otherwise
+// the query is treated as free text and converted to a `text ~ "..."` JQL.
+func (c *Client) Search(query string, isJQL bool, maxResults int) ([]Issue, error) {
+	var jql string
+	if isJQL {
+		jql = query
+	} else {
+		// Protect empty query
+		trimmed := strings.TrimSpace(query)
+		if trimmed == "" {
+			// default to issues assigned to current user
+			jql = "assignee = currentUser() ORDER BY updated DESC"
+		} else {
+			jql = fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", trimmed)
+		}
+	}
 	encodedJQL := url.QueryEscape(jql)
 	endpoint := fmt.Sprintf("search/jql?jql=%s&fields=key,summary,description,status,assignee,priority,sprint", encodedJQL)
+	if maxResults > 0 {
+		endpoint = fmt.Sprintf("%s&maxResults=%d", endpoint, maxResults)
+	}
 
 	resp, err := c.makeRequest("GET", endpoint, nil)
 	if err != nil {
@@ -143,6 +160,11 @@ func (c *Client) GetMyIssues() ([]Issue, error) {
 	}
 
 	return searchResp.Issues, nil
+}
+
+// GetMyIssues retrieves issues assigned to the current user
+func (c *Client) GetMyIssues() ([]Issue, error) {
+	return c.Search("", false, 0)
 }
 
 // GetIssueDetails retrieves detailed information about a specific issue
@@ -363,25 +385,11 @@ func (c *Client) AddRemoteLink(issueKey, linkURL, title, summary string) error {
 }
 
 func (c *Client) FindMentions() ([]Issue, error) {
-	jql := fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", c.config.Username)
-	encodedJQL := url.QueryEscape(jql)
-	endpoint := fmt.Sprintf("search/jql?jql=%s&fields=key,summary,description,status,assignee,priority,updated&maxResults=50", encodedJQL)
-
-	resp, err := c.makeRequest("GET", endpoint, nil)
+	query := fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", c.config.Username)
+	// Use Search with isJQL=true because query already contains JQL syntax
+	issues, err := c.Search(query, true, 50)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
-	}
-
-	var searchResp SearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return searchResp.Issues, nil
+	return issues, nil
 }

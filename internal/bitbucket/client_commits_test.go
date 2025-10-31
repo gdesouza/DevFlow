@@ -47,14 +47,14 @@ func TestGetPullRequestCommits(t *testing.T) {
 	client := NewClient(cfg)
 	client.baseURL = server.URL + "/2.0"
 
-	statuses, err := client.GetCommitStatuses("repo", "abcdef123")
+	commits, err := client.GetPullRequestCommits("repo", 42)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if len(statuses) != 2 {
-		t.Fatalf("expected 2 statuses, got %d", len(statuses))
+	if len(commits) != 2 {
+		t.Fatalf("expected 2 commits, got %d", len(commits))
 	}
-	if statuses[0].State != "SUCCESSFUL" {
-		t.Errorf("expected first status SUCCESSFUL, got %s", statuses[0].State)
+	if commits[0].Hash != "abcdef123456" {
+		t.Errorf("expected first commit hash abcdef123456, got %s", commits[0].Hash)
 	}
 }

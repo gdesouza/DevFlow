@@ -12,10 +12,13 @@ import (
 func TestGetPullRequestCommits_Paginated(t *testing.T) {
 	// Simulate API returning values + next (client should still return values)
 	resp := CommitsResponse{Values: []Commit{{Hash: "aaa111", Message: "Commit A"}}}
-	b, _ := json.Marshal(struct {
+	b, err := json.Marshal(struct {
 		CommitsResponse
 		Next string `json:"next"`
 	}{CommitsResponse: resp, Next: "https://api.bitbucket.org/2.0/repositories/workspace/repo/pullrequests/1/commits?page=2"})
+	if err != nil {
+		t.Fatalf("failed to marshal response: %v", err)
+	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/2.0/repositories/workspace/repo/pullrequests/1/commits" {
@@ -24,7 +27,9 @@ func TestGetPullRequestCommits_Paginated(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(b)
+		if _, err := w.Write(b); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -53,7 +58,9 @@ func TestGetPullRequestCommits_MalformedCommit(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(malformed)
+		if _, err := w.Write(malformed); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 

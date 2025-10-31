@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var readmeRepoSlug string
 var readmeRaw bool
 
 var readmeCmd = &cobra.Command{

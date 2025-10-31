@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -101,9 +100,7 @@ var gitListCmd = &cobra.Command{
 				wg.Wait()
 				close(results)
 			}()
-			stream := make([]gitRepoStatus, 0, len(repos))
 			for r := range results {
-				stream = append(stream, *r)
 				fmt.Printf("%s\t%s\t%s\n", r.Path, r.Branch, r.State)
 			}
 			return nil
@@ -305,12 +302,6 @@ func evaluateRepo(root, repoPath string, doFetch bool) *gitRepoStatus {
 		st.State = "diverged"
 	}
 	return &st
-}
-
-// atoiSafe parses integer from string returning 0 on error
-func atoiSafe(s string) int {
-	n, _ := strconv.Atoi(s)
-	return n
 }
 
 func relativePath(root, path string) string {

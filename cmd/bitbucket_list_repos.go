@@ -181,9 +181,7 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 		os.Stdout.WriteString(bldr.String())
 
 		// Read key
-		if err := stdin.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
-			// ignore deadline errors
-		}
+		_ = stdin.SetReadDeadline(time.Now().Add(5 * time.Minute)) // ignore deadline errors
 		n, err := stdin.Read(buf[:1])
 		if err != nil || n == 0 {
 			continue
@@ -195,10 +193,8 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 		}
 
 		if b == 27 { // ESC sequence
-			if _, _ = stdin.Read(buf[1:2]); true { // should be '['; ignore errors
-			}
-			if _, _ = stdin.Read(buf[2:3]); true { // code; ignore errors
-			}
+			_, _ = stdin.Read(buf[1:2]) // should be '['; ignore errors
+			_, _ = stdin.Read(buf[2:3]) // code; ignore errors
 			code := buf[2]
 			switch code {
 			case 'A': // Up

@@ -18,7 +18,9 @@ func TestCreateIssue_Succeeds(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(respJSON))
+		if _, err := w.Write([]byte(respJSON)); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	defer srv.Close()
 
@@ -47,13 +49,19 @@ func TestCreateIssue_RetryRemovesCustomFields(t *testing.T) {
 			w.WriteHeader(http.StatusBadRequest)
 			// Return an errors map indicating customfield_10014 is invalid
 			b, _ := json.Marshal(map[string]map[string]string{"errors": {"customfield_10014": "bad field"}})
-			w.Write(b)
+			if _, err := w.Write(b); err != nil {
+				t.Fatalf("failed to write response: %v", err)
+			}
+
 			return
 		}
 		// On retry, return created
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"key":"PROJ-456","fields":{"summary":"New task"}}`))
+		if _, err := w.Write([]byte(`{"key":"PROJ-456","fields":{"summary":"New task"}}`)); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+
 	}))
 	defer srv.Close()
 

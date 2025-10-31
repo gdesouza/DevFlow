@@ -59,7 +59,9 @@ func TestSearch_FreeTextAndJQL(t *testing.T) {
 				respJSON := `{"issues":[{"key":"ABC-1","fields":{"summary":"Test issue","status":{"name":"To Do"},"assignee":{"displayName":"Alice"},"priority":{"name":"High"}}}]}`
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(respJSON))
+				if _, err := w.Write([]byte(respJSON)); err != nil {
+					t.Fatalf("failed to write response: %v", err)
+				}
 			}))
 			defer srv.Close()
 
@@ -101,7 +103,9 @@ func TestGetMyIssuesAndFindMentions(t *testing.T) {
 		b, _ := json.Marshal(resp)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(b)
+		if _, err := w.Write(b); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	defer srv.Close()
 
@@ -146,7 +150,9 @@ func TestSearch_EncodingsAndQueryEscape(t *testing.T) {
 		b, _ := json.Marshal(resp)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(b)
+		if _, err := w.Write(b); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	defer srv.Close()
 

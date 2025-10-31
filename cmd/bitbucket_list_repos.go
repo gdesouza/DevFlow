@@ -294,8 +294,7 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 		case 's', 'S': // explicit save (already saved on toggle)
 			// Just show a transient message
 			fmt.Print("\nSaved. Press any key...")
-			if _, _ = stdin.Read(buf[:1]); true {
-			}
+			_, _ = stdin.Read(buf[:1]) // wait for keypress
 		}
 	}
 }

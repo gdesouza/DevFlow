@@ -29,8 +29,11 @@ func TestCreatePullRequest_Success(t *testing.T) {
 		resp := map[string]interface{}{"id": 123, "title": payload["title"], "state": "OPEN"}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
+
 	defer server.Close()
 
 	cfg := &config.BitbucketConfig{Workspace: "workspace"}
@@ -58,6 +61,7 @@ func TestGetCommitStatuses_Empty(t *testing.T) {
 		if _, err := w.Write([]byte(`{"values":[]}`)); err != nil {
 			t.Fatalf("failed to write response: %v", err)
 		}
+
 	}))
 	defer server.Close()
 
@@ -78,8 +82,11 @@ func TestGetCommitStatuses_Empty(t *testing.T) {
 func TestGetPullRequestCommits_Non200(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("not found"))
+		if _, err := w.Write([]byte("not found")); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
+
 	defer server.Close()
 
 	cfg := &config.BitbucketConfig{Workspace: "workspace"}
@@ -102,19 +109,25 @@ func TestGetRepositoriesPaged_SuccessPages(t *testing.T) {
 		// getTotalRepositoryCount requests: /2.0/repositories/workspace?page=1&pagelen=1
 		if strings.HasPrefix(path, "/2.0/repositories/workspace") && strings.Contains(q, "pagelen=1") {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"values":[{"name":"r1","full_name":"workspace/r1"}], "next":""}`))
+			if _, err := w.Write([]byte(`{"values":[{"name":"r1","full_name":"workspace/r1"}], "next":""}`)); err != nil {
+				t.Fatalf("failed to write response: %v", err)
+			}
 			return
 		}
 		// first page (getFirstPageWithTotal): page=1&pagelen=size
 		if strings.HasPrefix(path, "/2.0/repositories/workspace") && strings.Contains(q, "page=1") {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"values":[{"name":"a","full_name":"workspace/a"}], "next":""}`))
+			if _, err := w.Write([]byte(`{"values":[{"name":"a","full_name":"workspace/a"}], "next":""}`)); err != nil {
+				t.Fatalf("failed to write response: %v", err)
+			}
 			return
 		}
 		// subsequent page e.g., page=2
 		if strings.HasPrefix(path, "/2.0/repositories/workspace") && strings.Contains(q, "page=2") {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"values":[{"name":"b","full_name":"workspace/b"}], "next":""}`))
+			if _, err := w.Write([]byte(`{"values":[{"name":"b","full_name":"workspace/b"}], "next":""}`)); err != nil {
+				t.Fatalf("failed to write response: %v", err)
+			}
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)

@@ -311,7 +311,7 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 	return &issue, nil
 }
 
-// FindMentions searches for issues where the current user is mentioned
+// AddComment adds a comment to an issue
 func (c *Client) AddComment(issueKey, body string) error {
 	endpoint := fmt.Sprintf("issue/%s/comment", issueKey)
 	payload := map[string]interface{}{
@@ -336,6 +336,7 @@ func (c *Client) AddComment(issueKey, body string) error {
 	return nil
 }
 
+// AddRemoteLink adds a remote link to an issue
 func (c *Client) AddRemoteLink(issueKey, linkURL, title, summary string) error {
 	endpoint := fmt.Sprintf("issue/%s/remotelink", issueKey)
 	obj := map[string]interface{}{
@@ -362,6 +363,7 @@ func (c *Client) AddRemoteLink(issueKey, linkURL, title, summary string) error {
 	return nil
 }
 
+// FindMentions searches for issues where the current user is mentioned
 func (c *Client) FindMentions() ([]Issue, error) {
 	jql := fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", c.config.Username)
 	encodedJQL := url.QueryEscape(jql)
@@ -384,4 +386,55 @@ func (c *Client) FindMentions() ([]Issue, error) {
 	}
 
 	return searchResp.Issues, nil
+}
+
+// UpdateIssue updates the specified fields on an existing issue.
+// The caller should pass a map where keys are Jira field keys (e.g., "summary",
+// "description", "priority", "assignee", "labels", "customfield_10016", etc.).
+func (c *Client) UpdateIssue(issueKey string, fields map[string]interface{}) error {
+	if len(fields) == 0 {
+		return nil
+	}
+
+	// Convert description from plain string to ADF if present and is a string
+	if d, ok := fields["description"].(string); ok {
+		if strings.TrimSpace(d) == "" {
+			fields["description"] = map[string]interface{}{
+				"type":    "doc",
+				"version": 1,
+				"content": []interface{}{map[string]interface{}{"type": "paragraph", "content": []interface{}{}}},
+			}
+		} else {
+			lines := strings.Split(d, "\n")
+			paragraphs := make([]interface{}, 0, len(lines))
+			for _, line := range lines {
+				line = strings.TrimRight(line, "\r")
+				if line == "" {
+					paragraphs = append(paragraphs, map[string]interface{}{"type": "paragraph", "content": []interface{}{}})
+					continue
+				}
+				paragraphs = append(paragraphs, map[string]interface{}{
+					"type":    "paragraph",
+					"content": []interface{}{map[string]interface{}{"type": "text", "text": line}},
+				})
+			}
+			fields["description"] = map[string]interface{}{"type": "doc", "version": 1, "content": paragraphs}
+		}
+	}
+
+	endpoint := fmt.Sprintf("issue/%s", issueKey)
+	body := map[string]interface{}{"fields": fields}
+
+	resp, err := c.makeRequest("PUT", endpoint, body)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Jira returns 204 No Content on success for update
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		data, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API request failed with status: %d, body: %s", resp.StatusCode, string(data))
+	}
+	return nil
 }

@@ -614,21 +614,30 @@ func (c *Client) getTotalRepositoryCount(size int) (int, error) {
 	return 50, nil // Conservative estimate
 }
 
-// GetRepositoryMainBranch returns the repository's main branch name or a fallback
-func (c *Client) GetRepositoryMainBranch(repoSlug string) (string, error) {
+// GetRepository retrieves detailed information about a specific repository
+func (c *Client) GetRepository(repoSlug string) (*Repository, error) {
 	endpoint := fmt.Sprintf("repositories/%s/%s", c.config.Workspace, repoSlug)
 	resp, err := c.makeRequest("GET", endpoint, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to make request: %w", err)
+		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 	}
 	var repo Repository
 	if err := json.NewDecoder(resp.Body).Decode(&repo); err != nil {
-		return "", fmt.Errorf("failed to decode repository response: %w", err)
+		return nil, fmt.Errorf("failed to decode repository response: %w", err)
+	}
+	return &repo, nil
+}
+
+// GetRepositoryMainBranch returns the repository's main branch name or a fallback
+func (c *Client) GetRepositoryMainBranch(repoSlug string) (string, error) {
+	repo, err := c.GetRepository(repoSlug)
+	if err != nil {
+		return "", err
 	}
 	if repo.MainBranch.Name != "" {
 		return repo.MainBranch.Name, nil

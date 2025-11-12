@@ -12,6 +12,7 @@ var repoCmd = &cobra.Command{
 Subcommands:
   list        List workspace repositories (pagination & interactive)
   search      Regex search repositories by name (and optional description)
+  show        Show detailed information about a repository
   remotes     Show HTTPS/SSH clone URLs for a repository
   readme      Display repository README contents (tries common filenames)
   watch       Manage watched repositories (add/remove/toggle/list)
@@ -28,6 +29,7 @@ var pullrequestCmd = &cobra.Command{
 func init() {
 	repoCmd.AddCommand(listReposCmd)
 	repoCmd.AddCommand(searchReposCmd)
+	repoCmd.AddCommand(showRepoCmd)
 	repoCmd.AddCommand(remotesCmd)
 	repoCmd.AddCommand(readmeCmd)
 	pullrequestCmd.AddCommand(listPRsCmd)

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -100,9 +100,7 @@ var gitListCmd = &cobra.Command{
 				wg.Wait()
 				close(results)
 			}()
-			stream := make([]gitRepoStatus, 0, len(repos))
 			for r := range results {
-				stream = append(stream, *r)
 				fmt.Printf("%s\t%s\t%s\n", r.Path, r.Branch, r.State)
 			}
 			return nil
@@ -249,9 +247,7 @@ func evaluateRepo(root, repoPath string, doFetch bool) *gitRepoStatus {
 		if err != nil {
 			continue
 		}
-		for _, p := range c.ParentHashes {
-			queue = append(queue, p)
-		}
+		queue = append(queue, c.ParentHashes...)
 	}
 	queue = []plumbing.Hash{remoteHash}
 	for len(queue) > 0 && len(remoteAnc) < maxCommits {
@@ -265,9 +261,7 @@ func evaluateRepo(root, repoPath string, doFetch bool) *gitRepoStatus {
 		if err != nil {
 			continue
 		}
-		for _, p := range c.ParentHashes {
-			queue = append(queue, p)
-		}
+		queue = append(queue, c.ParentHashes...)
 	}
 	// Count ahead/behind (exclude common ancestors)
 	ahead := 0
@@ -308,12 +302,6 @@ func evaluateRepo(root, repoPath string, doFetch bool) *gitRepoStatus {
 		st.State = "diverged"
 	}
 	return &st
-}
-
-func atoiSafe(s string) int {
-	var n int
-	fmt.Sscanf(s, "%d", &n)
-	return n
 }
 
 func relativePath(root, path string) string {

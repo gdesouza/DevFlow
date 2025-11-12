@@ -1,0 +1,26 @@
+version: v1.0
+name: Go
+agent:
+  machine:
+    type: f1-standard-2
+    os_image: ubuntu2204
+blocks:
+  - name: Test
+    task:
+      jobs:
+        - name: go test
+          commands:
+            - sem-version go 1.25.1
+            - export GO111MODULE=on
+            - export GOPATH=~/go
+            - 'export PATH=/home/semaphore/go/bin:$HOME/.local/bin:$PATH'
+            - checkout
+            - go mod download
+            - go install gotest.tools/gotestsum@latest
+            - gotestsum --junitfile test_results.junit.xml -- -race -covermode=atomic -coverprofile=coverage.out ./...
+            - go build -v .
+            - pip3 install --user codecov-cli
+            - codecovcli do-upload --report-type test_results --file test_results.junit.xml --token "$CODECOV_TOKEN"
+            - codecovcli upload-process --token "$CODECOV_TOKEN"
+      secrets:
+        - name: Codecov token

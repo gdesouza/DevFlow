@@ -81,8 +81,12 @@ func init() {
 	setStatusCmd.Flags().String("name", "", "Human-friendly status name (defaults to key)")
 	setStatusCmd.Flags().String("url", "", "Link to build or deployment details")
 	setStatusCmd.Flags().String("description", "", "Short description of the status result")
-	setStatusCmd.MarkFlagRequired("state")
-	setStatusCmd.MarkFlagRequired("key")
+	if err := setStatusCmd.MarkFlagRequired("state"); err != nil {
+		panic(err)
+	}
+	if err := setStatusCmd.MarkFlagRequired("key"); err != nil {
+		panic(err)
+	}
 }
 
 func validateSetStatusInputs(state, key, name, urlStr string) error {

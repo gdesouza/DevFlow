@@ -42,7 +42,9 @@ func TestGetRepositoryReadme(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if content, ok := tc.files[r.URL.Path]; ok {
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(content))
+				if _, err := w.Write([]byte(content)); err != nil {
+					t.Fatalf("failed to write response: %v", err)
+				}
 				return
 			}
 			w.WriteHeader(http.StatusNotFound)

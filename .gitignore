@@ -32,3 +32,7 @@ config.json
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Local artifacts
+coverage.html
+venv/

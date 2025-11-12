@@ -31,10 +31,18 @@ func TestSetCommitStatus(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		bodyBytes, _ := io.ReadAll(r.Body)
-		json.Unmarshal(bodyBytes, &received)
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("failed to read request body: %v", err)
+		}
+		if err := json.Unmarshal(bodyBytes, &received); err != nil {
+			t.Fatalf("failed to unmarshal request body: %v", err)
+		}
 		w.WriteHeader(http.StatusCreated)
-		w.Write(respData)
+		if _, err := w.Write(respData); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+
 	}))
 	defer server.Close()
 

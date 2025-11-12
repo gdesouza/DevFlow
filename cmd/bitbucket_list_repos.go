@@ -80,20 +80,24 @@ func runPagedMode(client *bitbucket.Client, workspace string, page, size int) {
 
 // runInteractiveMode provides an arrow-key driven UI for browsing and toggling watched repositories.
 // Keys:
-//  Up/Down: move selection
-//  Left/Right: previous/next page
-//  Space or Enter: toggle watch
-//  w: jump to next watched repo
-//  g: go to page number
-//  s: save (no-op; autosave already happens)
-//  q: quit
+//
+//	Up/Down: move selection
+//	Left/Right: previous/next page
+//	Space or Enter: toggle watch
+//	w: jump to next watched repo
+//	g: go to page number
+//	s: save (no-op; autosave already happens)
+//	q: quit
 func runInteractiveMode(client *bitbucket.Client, workspace string) {
 	// Determine interactive page size (prompt only if default)
 	interactivePageSize := pageSize
 	if pageSize == 20 { // default flag value; offer smaller default prompt
 		fmt.Print("Enter page size (default 10): ")
 		var inp string
-		fmt.Scanln(&inp)
+		if _, err := fmt.Scanln(&inp); err != nil {
+			// ignore scan errors and fall back to default
+			inp = ""
+		}
 		if strings.TrimSpace(inp) == "" {
 			interactivePageSize = 10
 		} else if n, err := strconv.Atoi(strings.TrimSpace(inp)); err == nil && n > 0 && n <= 100 {
@@ -121,7 +125,9 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 	if err != nil {
 		log.Fatalf("Failed to set raw mode: %v", err)
 	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
+	defer func() {
+		_ = term.Restore(int(os.Stdin.Fd()), oldState)
+	}()
 
 	stdin := os.Stdin
 	buf := make([]byte, 3) // enough for ESC seq
@@ -175,7 +181,7 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 		os.Stdout.WriteString(bldr.String())
 
 		// Read key
-		stdin.SetReadDeadline(time.Now().Add(5 * time.Minute))
+		_ = stdin.SetReadDeadline(time.Now().Add(5 * time.Minute)) // ignore deadline errors
 		n, err := stdin.Read(buf[:1])
 		if err != nil || n == 0 {
 			continue
@@ -187,8 +193,8 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 		}
 
 		if b == 27 { // ESC sequence
-			stdin.Read(buf[1:2]) // should be '['
-			stdin.Read(buf[2:3]) // code
+			_, _ = stdin.Read(buf[1:2]) // should be '['; ignore errors
+			_, _ = stdin.Read(buf[2:3]) // code; ignore errors
 			code := buf[2]
 			switch code {
 			case 'A': // Up
@@ -270,10 +276,13 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 		case 'g', 'G': // go to page
 			fmt.Print("\nPage number: ")
 			// Temporarily leave raw for line input
-			term.Restore(int(os.Stdin.Fd()), oldState)
+			_ = term.Restore(int(os.Stdin.Fd()), oldState)
 			var pageInput string
-			fmt.Scanln(&pageInput)
+			if _, err := fmt.Scanln(&pageInput); err != nil {
+				pageInput = ""
+			}
 			oldState, _ = term.MakeRaw(int(os.Stdin.Fd()))
+
 			if p, err := strconv.Atoi(strings.TrimSpace(pageInput)); err == nil && p >= 1 && p <= totalPages {
 				currentPage = p - 1
 				repos, err = fetchPage(currentPage)
@@ -285,7 +294,7 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 		case 's', 'S': // explicit save (already saved on toggle)
 			// Just show a transient message
 			fmt.Print("\nSaved. Press any key...")
-			stdin.Read(buf[:1])
+			_, _ = stdin.Read(buf[:1]) // wait for keypress
 		}
 	}
 }
@@ -298,7 +307,10 @@ func saveWatched(watchedSet map[string]struct{}) {
 	}
 	sort.Strings(list)
 	cfg.Bitbucket.WatchedRepos = list
-	_ = config.Save(cfg)
+	if err := config.Save(cfg); err != nil {
+		// best effort save; print error but do not exit interactive mode
+		fmt.Fprintf(os.Stderr, "failed to save config: %v\n", err)
+	}
 }
 
 func displayReposPage(repos []bitbucket.Repository, workspace string) {

@@ -41,10 +41,12 @@ type Issue struct {
 }
 
 type SearchResponse struct {
-	Issues     []Issue `json:"issues"`
-	StartAt    int     `json:"startAt"`
-	MaxResults int     `json:"maxResults"`
-	Total      int     `json:"total"`
+	Issues        []Issue `json:"issues"`
+	StartAt       int     `json:"startAt"`
+	MaxResults    int     `json:"maxResults"`
+	Total         int     `json:"total"`
+	NextPageToken string  `json:"nextPageToken"`
+	IsLast        bool    `json:"isLast"`
 }
 
 // IssueDetails represents detailed information about a Jira issue
@@ -225,7 +227,7 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 
 		// Debug: print paging info
 		if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
-			log.Printf("Jira response paging: startAt=%d maxResults=%d total=%d issues=%d", searchResp.StartAt, searchResp.MaxResults, searchResp.Total, len(searchResp.Issues))
+			log.Printf("Jira response paging: startAt=%d maxResults=%d total=%d issues=%d nextPageToken=%q isLast=%v", searchResp.StartAt, searchResp.MaxResults, searchResp.Total, len(searchResp.Issues), searchResp.NextPageToken, searchResp.IsLast)
 		}
 
 		returned := len(searchResp.Issues)
@@ -239,6 +241,56 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 			} else {
 				collected = append(collected, searchResp.Issues[:needed]...)
 			}
+		}
+
+		// If the server provides a nextPageToken, use token-based pagination (prefer token over startAt)
+		if searchResp.NextPageToken != "" {
+			// Loop using the token until we either have enough results, hit isLast, or token is empty
+			token := searchResp.NextPageToken
+			for token != "" && !searchResp.IsLast && len(collected) < maxResults {
+				if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
+					log.Printf("Jira token-based paging: requesting next page with token=%s", token)
+				}
+				// Build endpoint with token (GET style)
+				endpoint := fmt.Sprintf("%s&maxResults=%d&pageToken=%s", baseEndpoint, perPage, url.QueryEscape(token))
+				resp, err := c.makeRequest("GET", endpoint, nil)
+				if err != nil {
+					return nil, fmt.Errorf("failed to make token-based request: %w", err)
+				}
+				defer resp.Body.Close()
+				if resp.StatusCode != http.StatusOK {
+					body, _ := io.ReadAll(resp.Body)
+					return nil, fmt.Errorf("API request failed (token) with status: %d, response: %s", resp.StatusCode, string(body))
+				}
+				var tr SearchResponse
+				if err := json.NewDecoder(resp.Body).Decode(&tr); err != nil {
+					return nil, fmt.Errorf("failed to decode token response: %w", err)
+				}
+				// Debug
+				if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
+					log.Printf("Jira token response: nextPageToken=%q isLast=%v issues=%d", tr.NextPageToken, tr.IsLast, len(tr.Issues))
+				}
+				// Append items (respecting maxResults)
+				if len(tr.Issues) > 0 {
+					needed := maxResults - len(collected)
+					if needed <= 0 {
+						break
+					}
+					if len(tr.Issues) <= needed {
+						collected = append(collected, tr.Issues...)
+					} else {
+						collected = append(collected, tr.Issues[:needed]...)
+					}
+				}
+				// Prepare next iteration
+				token = tr.NextPageToken
+				searchResp.IsLast = tr.IsLast
+			}
+			// After token loop return collected (we paged to satisfy the request)
+			if len(collected) > maxResults {
+				collected = collected[:maxResults]
+			}
+			return collected, nil
 		}
 
 		// If server didn't provide paging metadata (total/maxResults==0) but returned issues,
@@ -291,7 +343,6 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 			// Replace collected with the slice (since fallback was intended to return this page)
 			collected = append([]Issue{}, pageSlice...)
 			return collected, nil
-
 		}
 
 		// Determine if we should continue using the actual number of issues returned

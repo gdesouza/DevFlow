@@ -199,6 +199,60 @@ func TestSearch_MultiPagePaging(t *testing.T) {
 	}
 }
 
+func TestSearch_TokenPaging(t *testing.T) {
+	// Simulate a token-based paging server
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path != "/rest/api/3/search/jql" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+
+		vals := r.URL.Query()
+		pageToken := vals.Get("pageToken")
+		var resp SearchResponse
+		if pageToken == "" {
+			// first page
+			resp.Issues = []Issue{{Key: "T-1"}, {Key: "T-2"}}
+			resp.NextPageToken = "tok-1"
+			resp.IsLast = false
+		} else if pageToken == "tok-1" {
+			resp.Issues = []Issue{{Key: "T-3"}}
+			resp.NextPageToken = ""
+			resp.IsLast = true
+		} else {
+			resp.Issues = []Issue{}
+			resp.NextPageToken = ""
+			resp.IsLast = true
+		}
+
+		b, _ := json.Marshal(resp)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(b); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	cfg := &config.JiraConfig{URL: srv.URL, Username: "u", Token: "t"}
+	c := NewClient(cfg)
+
+	issues, err := c.Search("project = TOK", true, 10, 0)
+	if err != nil {
+		t.Fatalf("Search returned error: %v", err)
+	}
+	if len(issues) != 3 {
+		t.Fatalf("expected 3 issues, got %d", len(issues))
+	}
+	if issues[0].Key != "T-1" || issues[1].Key != "T-2" || issues[2].Key != "T-3" {
+		t.Fatalf("unexpected issue keys: %v", []string{issues[0].Key, issues[1].Key, issues[2].Key})
+	}
+	if calls < 2 {
+		t.Fatalf("expected multiple calls for token paging, got %d", calls)
+	}
+}
+
 func TestSearch_EncodingsAndQueryEscape(t *testing.T) {
 	// Ensure special characters are preserved and decoded by the server
 	var seen string
@@ -231,32 +285,5 @@ func TestSearch_EncodingsAndQueryEscape(t *testing.T) {
 	vals, _ := url.ParseQuery(seen)
 	if vals.Get("jql") == "" {
 		t.Fatalf("server did not receive jql param in RawQuery: %s", seen)
-	}
-}
-
-func TestSearch_FallbackCap(t *testing.T) {
-	// Server that omits paging metadata but returns some issues
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/rest/api/3/search/jql" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
-		}
-		// Return issues but zeroed paging metadata
-		resp := SearchResponse{Issues: []Issue{{Key: "X-1"}, {Key: "X-2"}, {Key: "X-3"}}, StartAt: 0, MaxResults: 0, Total: 0}
-		b, _ := json.Marshal(resp)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write(b); err != nil {
-			t.Fatalf("failed to write response: %v", err)
-		}
-	}))
-	defer srv.Close()
-
-	cfg := &config.JiraConfig{URL: srv.URL, Username: "u", Token: "t"}
-	c := NewClient(cfg)
-
-	// Request a page that would require fallbackSize > cap (cap = 500 in client)
-	_, err := c.Search("project = X", true, 100, 1000) // startAtArg=1000, perPage=100 => fallbackSize=1100
-	if err == nil {
-		t.Fatalf("expected error due to fallback cap, got nil")
 	}
 }

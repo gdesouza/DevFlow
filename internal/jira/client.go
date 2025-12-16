@@ -137,6 +137,11 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 	var jql string
 	if isJQL {
 		jql = query
+		// If the provided raw JQL does not include an ORDER BY clause, append a default
+		// to ensure deterministic paging. This helps avoid repeated/overlapping pages.
+		if !strings.Contains(strings.ToLower(jql), "order by") {
+			jql = strings.TrimSpace(jql) + " ORDER BY updated DESC"
+		}
 	} else {
 		// Protect empty query
 		trimmed := strings.TrimSpace(query)
@@ -276,8 +281,8 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 			start := startAtArg
 			end := startAtArg + perPage
 			if start >= len(fbSearchResp.Issues) {
-				// nothing to return
-				return collected, nil
+				// fallback response doesn't contain enough items to reach requested page
+				return nil, fmt.Errorf("fallback response contained %d issues which is insufficient for requested startAt %d", len(fbSearchResp.Issues), startAtArg)
 			}
 			if end > len(fbSearchResp.Issues) {
 				end = len(fbSearchResp.Issues)
@@ -286,6 +291,7 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 			// Replace collected with the slice (since fallback was intended to return this page)
 			collected = append([]Issue{}, pageSlice...)
 			return collected, nil
+
 		}
 
 		// Determine if we should continue using the actual number of issues returned

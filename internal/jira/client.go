@@ -195,6 +195,10 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 	collected := make([]Issue, 0)
 	startAt := startAtArg
 	perPage := maxResults
+
+	// Cap for fallback size to avoid huge single requests when server omits metadata.
+	const fallbackCap = 500
+
 	// Some Jira servers may have a hard upper limit; request in chunks of at most perPage
 	for {
 		endpoint := fmt.Sprintf("%s&maxResults=%d&startAt=%d", baseEndpoint, perPage, startAt)
@@ -240,6 +244,9 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 			}
 			// Try to fetch up to startAtArg+perPage items from the server in a single request
 			fallbackSize := startAtArg + perPage
+			if fallbackSize > fallbackCap {
+				return nil, fmt.Errorf("requested page would require a large fallback of %d items which exceeds the cap of %d; please choose a smaller page or increase --max-results accordingly", fallbackSize, fallbackCap)
+			}
 			fallbackEndpoint := fmt.Sprintf("%s&maxResults=%d&startAt=%d", baseEndpoint, fallbackSize, 0)
 			fbResp, err := c.makeRequest("GET", fallbackEndpoint, nil)
 			if err != nil {

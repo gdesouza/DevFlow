@@ -51,6 +51,12 @@ var listTasksCmd = &cobra.Command{
 		// Get issues
 		var issues []jira.Issue
 
+		// The --page flag is 1-based and requires --max-results > 0.
+		// Validate to avoid silently ignoring the page parameter.
+		if page > 0 && maxResults <= 0 {
+			log.Fatal("The --page flag requires --max-results > 0. Example: --max-results 50 --page 2")
+		}
+
 		// Compute startAt from page (1-based). If page <= 0, startAtArg will be 0.
 		startAtArg := 0
 		if page > 1 && maxResults > 0 {

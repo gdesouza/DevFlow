@@ -233,3 +233,30 @@ func TestSearch_EncodingsAndQueryEscape(t *testing.T) {
 		t.Fatalf("server did not receive jql param in RawQuery: %s", seen)
 	}
 }
+
+func TestSearch_FallbackCap(t *testing.T) {
+	// Server that omits paging metadata but returns some issues
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/rest/api/3/search/jql" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		// Return issues but zeroed paging metadata
+		resp := SearchResponse{Issues: []Issue{{Key: "X-1"}, {Key: "X-2"}, {Key: "X-3"}}, StartAt: 0, MaxResults: 0, Total: 0}
+		b, _ := json.Marshal(resp)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(b); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	cfg := &config.JiraConfig{URL: srv.URL, Username: "u", Token: "t"}
+	c := NewClient(cfg)
+
+	// Request a page that would require fallbackSize > cap (cap = 500 in client)
+	_, err := c.Search("project = X", true, 100, 1000) // startAtArg=1000, perPage=100 => fallbackSize=1100
+	if err == nil {
+		t.Fatalf("expected error due to fallback cap, got nil")
+	}
+}

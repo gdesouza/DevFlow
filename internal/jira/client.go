@@ -136,6 +136,7 @@ func (c *Client) makeRequest(method, endpoint string, body interface{}) (*http.R
 // If isJQL is true, the provided query is used as JQL directly. Otherwise
 // the query is treated as free text and converted to a `text ~ "..."` JQL.
 func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int) ([]Issue, error) {
+	// Backwards compatible: if fetchAll behavior is desired, callers should use SearchAll.
 	var jql string
 	if isJQL {
 		jql = query
@@ -367,6 +368,91 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 func (c *Client) GetMyIssues() ([]Issue, error) {
 	// Default to single-page search with server default paging
 	return c.Search("", false, 0, 0)
+}
+
+// SearchAll retrieves issues following token-based or startAt pagination until completion
+// It respects maxResultsPerPage if >0; if maxTotal <= 0 it will fetch all available issues.
+func (c *Client) SearchAll(query string, isJQL bool, maxResultsPerPage int, maxTotal int) ([]Issue, error) {
+	collected := make([]Issue, 0)
+	seen := make(map[string]struct{})
+
+	// Helper to append unique issues
+	appendUnique := func(items []Issue) {
+		for _, it := range items {
+			if _, ok := seen[it.Key]; ok {
+				continue
+			}
+			seen[it.Key] = struct{}{}
+			collected = append(collected, it)
+		}
+	}
+
+	// First request uses startAt=0 (Search already handles building JQL)
+	issues, err := c.Search(query, isJQL, maxResultsPerPage, 0)
+	if err != nil {
+		return nil, err
+	}
+	appendUnique(issues)
+	if maxTotal > 0 && len(collected) >= maxTotal {
+		return collected[:maxTotal], nil
+	}
+
+	// Attempt token-based continuation if available
+	// Make an initial lightweight request to get the first response with tokens if needed
+	// We'll reuse Search flow by making direct calls similar to Search's token loop.
+	// Build base JQL and endpoint pieces similar to Search
+	var jql string
+	if isJQL {
+		jql = query
+		if !strings.Contains(strings.ToLower(jql), "order by") {
+			jql = strings.TrimSpace(jql) + " ORDER BY updated DESC"
+		}
+	} else {
+		trimmed := strings.TrimSpace(query)
+		if trimmed == "" {
+			jql = "assignee = currentUser() ORDER BY updated DESC"
+		} else {
+			jql = fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", trimmed)
+		}
+	}
+	encodedJQL := url.QueryEscape(jql)
+	baseEndpoint := fmt.Sprintf("search/jql?jql=%s&fields=key,summary,description,status,assignee,priority,sprint", encodedJQL)
+
+	// Try token-based paging first by requesting with maxResultsPerPage and seeing if NextPageToken appears
+	token := ""
+	for {
+		endpoint := baseEndpoint
+		if maxResultsPerPage > 0 {
+			endpoint = fmt.Sprintf("%s&maxResults=%d", baseEndpoint, maxResultsPerPage)
+		}
+		if token != "" {
+			endpoint = fmt.Sprintf("%s&pageToken=%s", endpoint, url.QueryEscape(token))
+		}
+		resp, err := c.makeRequest("GET", endpoint, nil)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		}
+		var sr SearchResponse
+		if err := json.NewDecoder(resp.Body).Decode(&sr); err != nil {
+			return nil, err
+		}
+		appendUnique(sr.Issues)
+		if maxTotal > 0 && len(collected) >= maxTotal {
+			return collected[:maxTotal], nil
+		}
+		if sr.IsLast || sr.NextPageToken == "" {
+			break
+		}
+		// Continue with token
+		token = sr.NextPageToken
+	}
+
+	return collected, nil
 }
 
 // GetIssueDetails retrieves detailed information about a specific issue

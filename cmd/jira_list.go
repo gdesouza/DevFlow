@@ -21,6 +21,7 @@ var (
 	searchJQL   string
 	maxResults  int
 	page        int
+	fetchAll    bool
 )
 
 var listTasksCmd = &cobra.Command{
@@ -63,27 +64,50 @@ var listTasksCmd = &cobra.Command{
 			startAtArg = (page - 1) * maxResults
 		}
 
-		if searchJQL != "" {
-			// Raw JQL provided
-			iss, err := client.Search(searchJQL, true, maxResults, startAtArg)
-			if err != nil {
-				log.Fatalf("Error searching Jira issues with JQL: %v", err)
+		if fetchAll {
+			// Fetch all results, ignoring --page
+			if searchJQL != "" {
+				iss, err := client.SearchAll(searchJQL, true, maxResults, 0)
+				if err != nil {
+					log.Fatalf("Error searching Jira issues with JQL (fetch-all): %v", err)
+				}
+				issues = iss
+			} else if searchQuery != "" {
+				iss, err := client.SearchAll(searchQuery, false, maxResults, 0)
+				if err != nil {
+					log.Fatalf("Error searching Jira issues (fetch-all): %v", err)
+				}
+				issues = iss
+			} else {
+				iss, err := client.SearchAll("", false, maxResults, 0)
+				if err != nil {
+					log.Fatalf("Error fetching Jira issues (fetch-all): %v", err)
+				}
+				issues = iss
 			}
-			issues = iss
-		} else if searchQuery != "" {
-			// Free text search
-			iss, err := client.Search(searchQuery, false, maxResults, startAtArg)
-			if err != nil {
-				log.Fatalf("Error searching Jira issues: %v", err)
-			}
-			issues = iss
 		} else {
-			// Default: issues assigned to current user
-			iss, err := client.GetMyIssues()
-			if err != nil {
-				log.Fatalf("Error fetching Jira issues: %v", err)
+			if searchJQL != "" {
+				// Raw JQL provided
+				iss, err := client.Search(searchJQL, true, maxResults, startAtArg)
+				if err != nil {
+					log.Fatalf("Error searching Jira issues with JQL: %v", err)
+				}
+				issues = iss
+			} else if searchQuery != "" {
+				// Free text search
+				iss, err := client.Search(searchQuery, false, maxResults, startAtArg)
+				if err != nil {
+					log.Fatalf("Error searching Jira issues: %v", err)
+				}
+				issues = iss
+			} else {
+				// Default: issues assigned to current user
+				iss, err := client.GetMyIssues()
+				if err != nil {
+					log.Fatalf("Error fetching Jira issues: %v", err)
+				}
+				issues = iss
 			}
-			issues = iss
 		}
 
 		// Apply filters
@@ -136,8 +160,9 @@ func init() {
 	// Search flags
 	listTasksCmd.Flags().StringVarP(&searchQuery, "query", "q", "", "Free-text search query (will be converted to JQL)")
 	listTasksCmd.Flags().StringVar(&searchJQL, "jql", "", "Raw JQL query (takes precedence over --query)")
-	listTasksCmd.Flags().IntVar(&maxResults, "max-results", 0, "Maximum number of results to return (0 = use server default)")
+	listTasksCmd.Flags().IntVar(&maxResults, "max-results", 0, "Maximum number of results per page (0 = use server default)")
 	listTasksCmd.Flags().IntVar(&page, "page", 0, "Page number to retrieve (1-based). Use with --max-results")
+	listTasksCmd.Flags().BoolVar(&fetchAll, "fetch-all", false, "Follow pagination tokens and fetch all results (ignores --page)")
 }
 
 // filterIssues filters issues based on status and exclude done flag

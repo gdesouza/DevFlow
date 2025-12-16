@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -39,7 +41,10 @@ type Issue struct {
 }
 
 type SearchResponse struct {
-	Issues []Issue `json:"issues"`
+	Issues     []Issue `json:"issues"`
+	StartAt    int     `json:"startAt"`
+	MaxResults int     `json:"maxResults"`
+	Total      int     `json:"total"`
 }
 
 // IssueDetails represents detailed information about a Jira issue
@@ -100,6 +105,11 @@ func NewClient(cfg *config.JiraConfig) *Client {
 func (c *Client) makeRequest(method, endpoint string, body interface{}) (*http.Response, error) {
 	url := fmt.Sprintf("%s/rest/api/3/%s", c.config.URL, endpoint)
 
+	// Debug: print full URL if enabled
+	if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
+		log.Printf("Jira request: %s %s", method, url)
+	}
+
 	var reqBody io.Reader
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
@@ -123,7 +133,7 @@ func (c *Client) makeRequest(method, endpoint string, body interface{}) (*http.R
 // Search performs a Jira search using either raw JQL or a free-text query.
 // If isJQL is true, the provided query is used as JQL directly. Otherwise
 // the query is treated as free text and converted to a `text ~ "..."` JQL.
-func (c *Client) Search(query string, isJQL bool, maxResults int) ([]Issue, error) {
+func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int) ([]Issue, error) {
 	var jql string
 	if isJQL {
 		jql = query
@@ -137,34 +147,162 @@ func (c *Client) Search(query string, isJQL bool, maxResults int) ([]Issue, erro
 			jql = fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", trimmed)
 		}
 	}
+
 	encodedJQL := url.QueryEscape(jql)
-	endpoint := fmt.Sprintf("search/jql?jql=%s&fields=key,summary,description,status,assignee,priority,sprint", encodedJQL)
-	if maxResults > 0 {
-		endpoint = fmt.Sprintf("%s&maxResults=%d", endpoint, maxResults)
+	baseEndpoint := fmt.Sprintf("search/jql?jql=%s&fields=key,summary,description,status,assignee,priority,sprint", encodedJQL)
+
+	// If maxResults <= 0, behave as before: single request leaving server to use its default
+	if maxResults <= 0 {
+		endpoint := baseEndpoint
+		resp, err := c.makeRequest("GET", endpoint, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		}
+
+		var searchResp SearchResponse
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+		if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
+			// Print raw response body (truncated)
+			bodyStr := string(data)
+			if len(bodyStr) > 2000 {
+				bodyStr = bodyStr[:2000] + "..."
+			}
+			log.Printf("Jira raw response body: %s", bodyStr)
+		}
+		if err := json.Unmarshal(data, &searchResp); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		// Debug: print paging info
+		if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
+			log.Printf("Jira response paging: startAt=%d maxResults=%d total=%d issues=%d", searchResp.StartAt, searchResp.MaxResults, searchResp.Total, len(searchResp.Issues))
+		}
+
+		return searchResp.Issues, nil
+
 	}
 
-	resp, err := c.makeRequest("GET", endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
+	// When maxResults > 0, implement paging to retrieve up to maxResults items
+	collected := make([]Issue, 0)
+	startAt := startAtArg
+	perPage := maxResults
+	// Some Jira servers may have a hard upper limit; request in chunks of at most perPage
+	for {
+		endpoint := fmt.Sprintf("%s&maxResults=%d&startAt=%d", baseEndpoint, perPage, startAt)
+		resp, err := c.makeRequest("GET", endpoint, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make request: %w", err)
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		}
+
+		var searchResp SearchResponse
+		if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		// Debug: print paging info
+		if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
+			log.Printf("Jira response paging: startAt=%d maxResults=%d total=%d issues=%d", searchResp.StartAt, searchResp.MaxResults, searchResp.Total, len(searchResp.Issues))
+		}
+
+		returned := len(searchResp.Issues)
+		if returned > 0 {
+			needed := maxResults - len(collected)
+			if needed <= 0 {
+				break
+			}
+			if returned <= needed {
+				collected = append(collected, searchResp.Issues...)
+			} else {
+				collected = append(collected, searchResp.Issues[:needed]...)
+			}
+		}
+
+		// If server didn't provide paging metadata (total/maxResults==0) but returned issues,
+		// attempt a fallback for requested pages > 0: request a larger page at startAt=0 and slice client-side.
+		if (searchResp.Total == 0 || searchResp.MaxResults == 0) && startAtArg > 0 {
+			if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
+				log.Printf("Jira server omitted paging metadata; attempting client-side paging fallback")
+			}
+			// Try to fetch up to startAtArg+perPage items from the server in a single request
+			fallbackSize := startAtArg + perPage
+			fallbackEndpoint := fmt.Sprintf("%s&maxResults=%d&startAt=%d", baseEndpoint, fallbackSize, 0)
+			fbResp, err := c.makeRequest("GET", fallbackEndpoint, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to make fallback request: %w", err)
+			}
+			defer fbResp.Body.Close()
+			if fbResp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(fbResp.Body)
+				return nil, fmt.Errorf("API request failed (fallback) with status: %d, response: %s", fbResp.StatusCode, string(body))
+			}
+			var fbSearchResp SearchResponse
+			fbData, err := io.ReadAll(fbResp.Body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read fallback response body: %w", err)
+			}
+			if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
+				bodyStr := string(fbData)
+				if len(bodyStr) > 2000 {
+					bodyStr = bodyStr[:2000] + "..."
+				}
+				log.Printf("Jira raw fallback response body: %s", bodyStr)
+			}
+			if err := json.Unmarshal(fbData, &fbSearchResp); err != nil {
+				return nil, fmt.Errorf("failed to decode fallback response: %w", err)
+			}
+			// Compute slice range
+			start := startAtArg
+			end := startAtArg + perPage
+			if start >= len(fbSearchResp.Issues) {
+				// nothing to return
+				return collected, nil
+			}
+			if end > len(fbSearchResp.Issues) {
+				end = len(fbSearchResp.Issues)
+			}
+			pageSlice := fbSearchResp.Issues[start:end]
+			// Replace collected with the slice (since fallback was intended to return this page)
+			collected = append([]Issue{}, pageSlice...)
+			return collected, nil
+		}
+
+		// Determine if we should continue using the actual number of issues returned
+		if searchResp.StartAt+returned >= searchResp.Total {
+			break
+		}
+		// Safety: if server returns 0 issues, avoid infinite loop
+		if returned == 0 {
+			break
+		}
+		startAt = searchResp.StartAt + returned
+		// Another safety: if collected reached requested maxResults, stop
+		if len(collected) >= maxResults {
+			break
+		}
 	}
 
-	var searchResp SearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return searchResp.Issues, nil
+	return collected, nil
 }
 
 // GetMyIssues retrieves issues assigned to the current user
 func (c *Client) GetMyIssues() ([]Issue, error) {
-	return c.Search("", false, 0)
+	// Default to single-page search with server default paging
+	return c.Search("", false, 0, 0)
 }
 
 // GetIssueDetails retrieves detailed information about a specific issue
@@ -389,7 +527,7 @@ func (c *Client) AddRemoteLink(issueKey, linkURL, title, summary string) error {
 func (c *Client) FindMentions() ([]Issue, error) {
 	query := fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", c.config.Username)
 	// Use Search with isJQL=true because query already contains JQL syntax
-	issues, err := c.Search(query, true, 50)
+	issues, err := c.Search(query, true, 50, 0)
 	if err != nil {
 		return nil, err
 	}

@@ -43,6 +43,7 @@ func TestSearch_FreeTextAndJQL(t *testing.T) {
 				if r.URL.Path != "/rest/api/3/search/jql" {
 					t.Fatalf("unexpected path: %s", r.URL.Path)
 				}
+
 				vals := r.URL.Query()
 				jql := vals.Get("jql")
 				if jql != tc.expectJQL {
@@ -74,7 +75,7 @@ func TestSearch_FreeTextAndJQL(t *testing.T) {
 			c := NewClient(cfg)
 
 			// Call Search
-			issues, err := c.Search(tc.query, tc.isJQL, tc.maxResults)
+			issues, err := c.Search(tc.query, tc.isJQL, tc.maxResults, 0)
 			if err != nil {
 				t.Fatalf("Search returned error: %v", err)
 			}
@@ -140,6 +141,64 @@ func TestGetMyIssuesAndFindMentions(t *testing.T) {
 	}
 }
 
+func TestSearch_MultiPagePaging(t *testing.T) {
+	// Simulate a server that returns 2 issues per page, total 3 issues
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path != "/rest/api/3/search/jql" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+
+		vals := r.URL.Query()
+		startAt := 0
+		if sa := vals.Get("startAt"); sa != "" {
+			fmt.Sscanf(sa, "%d", &startAt)
+		}
+		maxResults := 2
+		if mr := vals.Get("maxResults"); mr != "" {
+			fmt.Sscanf(mr, "%d", &maxResults)
+		}
+
+		var resp SearchResponse
+		resp.StartAt = startAt
+		resp.MaxResults = maxResults
+		resp.Total = 3
+		if startAt == 0 {
+			resp.Issues = []Issue{{Key: "ABC-1"}, {Key: "ABC-2"}}
+		} else if startAt == 2 {
+			resp.Issues = []Issue{{Key: "ABC-3"}}
+		} else {
+			resp.Issues = []Issue{}
+		}
+
+		b, _ := json.Marshal(resp)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(b); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	cfg := &config.JiraConfig{URL: srv.URL, Username: "u", Token: "t"}
+	c := NewClient(cfg)
+
+	issues, err := c.Search("project = ABC", true, 3, 0)
+	if err != nil {
+		t.Fatalf("Search returned error: %v", err)
+	}
+	if len(issues) != 3 {
+		t.Fatalf("expected 3 issues, got %d", len(issues))
+	}
+	if issues[0].Key != "ABC-1" || issues[1].Key != "ABC-2" || issues[2].Key != "ABC-3" {
+		t.Fatalf("unexpected issue keys: %v", []string{issues[0].Key, issues[1].Key, issues[2].Key})
+	}
+	if calls < 2 {
+		t.Fatalf("expected multiple calls to fetch pages, got %d", calls)
+	}
+}
+
 func TestSearch_EncodingsAndQueryEscape(t *testing.T) {
 	// Ensure special characters are preserved and decoded by the server
 	var seen string
@@ -160,7 +219,7 @@ func TestSearch_EncodingsAndQueryEscape(t *testing.T) {
 	c := NewClient(cfg)
 
 	query := `summary ~ "needs & review"` // contains spaces and ampersand
-	_, err := c.Search(query, true, 0)
+	_, err := c.Search(query, true, 0, 0)
 	if err != nil {
 		t.Fatalf("Search error: %v", err)
 	}

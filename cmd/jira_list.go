@@ -20,6 +20,7 @@ var (
 	searchQuery string
 	searchJQL   string
 	maxResults  int
+	page        int
 )
 
 var listTasksCmd = &cobra.Command{
@@ -49,16 +50,23 @@ var listTasksCmd = &cobra.Command{
 
 		// Get issues
 		var issues []jira.Issue
+
+		// Compute startAt from page (1-based). If page <= 0, startAtArg will be 0.
+		startAtArg := 0
+		if page > 1 && maxResults > 0 {
+			startAtArg = (page - 1) * maxResults
+		}
+
 		if searchJQL != "" {
 			// Raw JQL provided
-			iss, err := client.Search(searchJQL, true, maxResults)
+			iss, err := client.Search(searchJQL, true, maxResults, startAtArg)
 			if err != nil {
 				log.Fatalf("Error searching Jira issues with JQL: %v", err)
 			}
 			issues = iss
 		} else if searchQuery != "" {
 			// Free text search
-			iss, err := client.Search(searchQuery, false, maxResults)
+			iss, err := client.Search(searchQuery, false, maxResults, startAtArg)
 			if err != nil {
 				log.Fatalf("Error searching Jira issues: %v", err)
 			}
@@ -123,6 +131,7 @@ func init() {
 	listTasksCmd.Flags().StringVarP(&searchQuery, "query", "q", "", "Free-text search query (will be converted to JQL)")
 	listTasksCmd.Flags().StringVar(&searchJQL, "jql", "", "Raw JQL query (takes precedence over --query)")
 	listTasksCmd.Flags().IntVar(&maxResults, "max-results", 0, "Maximum number of results to return (0 = use server default)")
+	listTasksCmd.Flags().IntVar(&page, "page", 0, "Page number to retrieve (1-based). Use with --max-results")
 }
 
 // filterIssues filters issues based on status and exclude done flag

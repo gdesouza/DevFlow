@@ -31,7 +31,7 @@ func TestSearch_FreeTextAndJQL(t *testing.T) {
 			isJQL:      true,
 			query:      `project = ABC AND status = "To Do"`,
 			maxResults: 10,
-			expectJQL:  `project = ABC AND status = "To Do"`,
+			expectJQL:  `project = ABC AND status = "To Do" ORDER BY updated DESC`,
 		},
 	}
 

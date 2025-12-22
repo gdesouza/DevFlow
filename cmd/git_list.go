@@ -106,7 +106,30 @@ var gitListCmd = &cobra.Command{
 			return nil
 		}
 
-		wg.Wait()
+		if gitListTabular {
+			done := make(chan struct{})
+			go func() {
+				total := len(repos)
+				ticker := time.NewTicker(100 * time.Millisecond)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-done:
+						// Use \r to return to the start of the line and extra spaces to clear the line
+						fmt.Fprintf(os.Stderr, "\rProcessing... %d/%d repositories done.               \n", len(results), total)
+						return
+					case <-ticker.C:
+						fmt.Fprintf(os.Stderr, "\rProcessing... %d/%d repositories", len(results), total)
+					}
+				}
+			}()
+			wg.Wait()
+			close(done)
+			// A small sleep to allow the final progress message to be printed before continuing
+			time.Sleep(50 * time.Millisecond)
+		} else {
+			wg.Wait()
+		}
 		close(results)
 		slices := make([]gitRepoStatus, 0, len(repos))
 		for r := range results {

@@ -246,9 +246,18 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 
 		// If the server provides a nextPageToken, use token-based pagination (prefer token over startAt)
 		if searchResp.NextPageToken != "" {
+			// If caller requested a jump via startAtArg, token-based pagination cannot honor arbitrary offsets.
+			if startAtArg > 0 {
+				return nil, fmt.Errorf("server uses token-based pagination; cannot jump to startAt=%d. Use --fetch-all or request pages sequentially", startAtArg)
+			}
 			// Loop using the token until we either have enough results, hit isLast, or token is empty
 			token := searchResp.NextPageToken
+			iterations := 0
 			for token != "" && !searchResp.IsLast && len(collected) < maxResults {
+				iterations++
+				if iterations > 1000 {
+					return nil, fmt.Errorf("token-based pagination exceeded maximum iterations")
+				}
 				if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
 					log.Printf("Jira token-based paging: requesting next page with token=%s", token)
 				}
@@ -376,31 +385,27 @@ func (c *Client) SearchAll(query string, isJQL bool, maxResultsPerPage int, maxT
 	collected := make([]Issue, 0)
 	seen := make(map[string]struct{})
 
-	// Helper to append unique issues
-	appendUnique := func(items []Issue) {
+	// Helper to append unique issues and return count of newly added items
+	appendUnique := func(items []Issue) int {
+		added := 0
 		for _, it := range items {
 			if _, ok := seen[it.Key]; ok {
 				continue
 			}
 			seen[it.Key] = struct{}{}
 			collected = append(collected, it)
+			added++
 		}
+		return added
 	}
 
-	// First request uses startAt=0 (Search already handles building JQL)
-	issues, err := c.Search(query, isJQL, maxResultsPerPage, 0)
-	if err != nil {
-		return nil, err
-	}
-	appendUnique(issues)
-	if maxTotal > 0 && len(collected) >= maxTotal {
-		return collected[:maxTotal], nil
+	// Set a default page size if not specified - this ensures proper pagination metadata
+	pageSize := maxResultsPerPage
+	if pageSize <= 0 {
+		pageSize = 100 // Default to 100 results per page to minimize requests
 	}
 
-	// Attempt token-based continuation if available
-	// Make an initial lightweight request to get the first response with tokens if needed
-	// We'll reuse Search flow by making direct calls similar to Search's token loop.
-	// Build base JQL and endpoint pieces similar to Search
+	// Build base JQL and endpoint pieces for pagination
 	var jql string
 	if isJQL {
 		jql = query
@@ -418,15 +423,25 @@ func (c *Client) SearchAll(query string, isJQL bool, maxResultsPerPage int, maxT
 	encodedJQL := url.QueryEscape(jql)
 	baseEndpoint := fmt.Sprintf("search/jql?jql=%s&fields=key,summary,description,status,assignee,priority,sprint", encodedJQL)
 
-	// Try token-based paging first by requesting with maxResultsPerPage and seeing if NextPageToken appears
+	// Pagination loop using tokens or startAt
 	token := ""
+	tokenSeen := make(map[string]int)
+	iterations := 0
+	startAt := 0
+	noProgressCount := 0 // Track consecutive iterations with no new issues
+
 	for {
-		endpoint := baseEndpoint
-		if maxResultsPerPage > 0 {
-			endpoint = fmt.Sprintf("%s&maxResults=%d", baseEndpoint, maxResultsPerPage)
+		iterations++
+		if iterations > 1000 {
+			return nil, fmt.Errorf("token-based fetch-all exceeded maximum iterations; possible server bug or stuck token")
 		}
+
+		endpoint := fmt.Sprintf("%s&maxResults=%d", baseEndpoint, pageSize)
 		if token != "" {
 			endpoint = fmt.Sprintf("%s&pageToken=%s", endpoint, url.QueryEscape(token))
+		} else if iterations > 1 {
+			// Use startAt for subsequent pages if not using tokens
+			endpoint = fmt.Sprintf("%s&startAt=%d", endpoint, startAt)
 		}
 		resp, err := c.makeRequest("GET", endpoint, nil)
 		if err != nil {
@@ -441,15 +456,76 @@ func (c *Client) SearchAll(query string, isJQL bool, maxResultsPerPage int, maxT
 		if err := json.NewDecoder(resp.Body).Decode(&sr); err != nil {
 			return nil, err
 		}
-		appendUnique(sr.Issues)
-		if maxTotal > 0 && len(collected) >= maxTotal {
-			return collected[:maxTotal], nil
+		if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
+			log.Printf("Jira SearchAll page %d: startAt=%d maxResults=%d total=%d issues=%d unique_collected=%d nextPageToken=%q isLast=%v",
+				iterations, sr.StartAt, sr.MaxResults, sr.Total, len(sr.Issues), len(collected), sr.NextPageToken, sr.IsLast)
 		}
-		if sr.IsLast || sr.NextPageToken == "" {
+
+		// Add issues to collection
+		added := appendUnique(sr.Issues)
+
+		// Track progress to detect when server is stuck
+		if added == 0 {
+			noProgressCount++
+			if noProgressCount >= 3 {
+				// No new issues for 3 consecutive requests - we're done
+				if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
+					log.Printf("Jira SearchAll: No progress for %d iterations, stopping pagination", noProgressCount)
+				}
+				break
+			}
+		} else {
+			noProgressCount = 0 // Reset on progress
+		}
+
+		// Check if we've reached the maximum total
+		if maxTotal > 0 && len(collected) >= maxTotal {
+			if len(collected) > maxTotal {
+				return collected[:maxTotal], nil
+			}
+			return collected, nil
+		}
+
+		// Determine if we should continue pagination
+		// 1. If server indicates this is the last page
+		if sr.IsLast {
 			break
 		}
-		// Continue with token
-		token = sr.NextPageToken
+
+		// 2. If no issues were returned, we're done
+		if len(sr.Issues) == 0 {
+			break
+		}
+
+		// 3. Token-based pagination
+		if sr.NextPageToken != "" {
+			// Token loop protection: if we see the same token more than once, and no new issues were added, break to avoid infinite loop
+			tokenSeen[sr.NextPageToken]++
+			if tokenSeen[sr.NextPageToken] > 2 && added == 0 {
+				return collected, fmt.Errorf("fetch-all: server repeated nextPageToken %q without progress after %d tries; stopped to avoid infinite loop", sr.NextPageToken, tokenSeen[sr.NextPageToken])
+			}
+			token = sr.NextPageToken
+			continue
+		}
+
+		// 4. StartAt-based pagination (when no token is present)
+		// Check if we have metadata to determine if there are more results
+		if sr.Total > 0 && sr.MaxResults > 0 {
+			// We have proper pagination metadata
+			if sr.StartAt+len(sr.Issues) >= sr.Total {
+				// We've reached the end
+				break
+			}
+			startAt = sr.StartAt + len(sr.Issues)
+		} else {
+			// No pagination metadata - check if we got a full page
+			if len(sr.Issues) < pageSize {
+				// Got fewer results than requested, assume we're done
+				break
+			}
+			// Got a full page, try next page
+			startAt += len(sr.Issues)
+		}
 	}
 
 	return collected, nil

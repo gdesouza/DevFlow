@@ -15,9 +15,10 @@ var showPRCmd = &cobra.Command{
 	Use:     "show [repo-slug] [pr-id]",
 	Aliases: []string{"show-pr"},
 	Short:   "Show detailed information about a pull request",
-	Long:    `Display comprehensive details about a specific pull request including description, author, branches, reviewers, and status`,
+	Long:    `Display comprehensive details about a specific pull request including description, author, branches, reviewers, and status. Use --diff to show file changes.`,
 	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
+		showDiff, _ := cmd.Flags().GetBool("diff")
 		repoSlug := args[0]
 		prIDStr := args[1]
 
@@ -54,11 +55,22 @@ var showPRCmd = &cobra.Command{
 
 		// Display pull request details
 		displayPRDetails(pr, cfg.Bitbucket.Workspace, repoSlug)
+
+		if showDiff {
+			fmt.Println(strings.Repeat("-", 80))
+			diff, err := client.GetPullRequestDiff(repoSlug, prID)
+			if err != nil {
+				fmt.Printf("Error fetching diff: %v\n", err)
+			} else {
+				fmt.Println("🔀 File Diff:")
+				fmt.Println(diff)
+			}
+		}
 	},
 }
 
 func init() {
-	// This will be called when the bitbucket command is initialized
+	showPRCmd.Flags().Bool("diff", false, "Show file diff for the pull request")
 }
 
 func displayPRDetails(pr *bitbucket.PullRequestDetails, workspace, repoSlug string) {

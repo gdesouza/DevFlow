@@ -465,6 +465,29 @@ func (c *Client) GetPullRequestDetails(repoSlug string, prID int) (*PullRequestD
 	return &pr, nil
 }
 
+// GetPullRequestDiff retrieves the diff for a specific pull request
+func (c *Client) GetPullRequestDiff(repoSlug string, prID int) (string, error) {
+	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests/%d/diff", c.config.Workspace, repoSlug, prID)
+
+	resp, err := c.makeRequest("GET", endpoint, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+	}
+
+	diff, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read diff: %w", err)
+	}
+
+	return string(diff), nil
+}
+
 // GetRepositories retrieves all repositories in the workspace with pagination support
 func (c *Client) GetRepositories() ([]Repository, error) {
 	var allRepos []Repository

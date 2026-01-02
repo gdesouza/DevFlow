@@ -185,3 +185,51 @@ func TestFindMentions_Success(t *testing.T) {
 		t.Fatalf("unexpected issues: %+v", issues)
 	}
 }
+
+func TestListProjects_Success(t *testing.T) {
+	cfg := &config.JiraConfig{URL: "http://jira.example", Username: "me", Token: "tok"}
+	c := NewClient(cfg)
+	projects := []Project{
+		{ID: "10000", Key: "PROJ", Name: "My Project"},
+		{ID: "10001", Key: "TEST", Name: "Test Project"},
+	}
+	projects[0].Lead.DisplayName = "John Doe"
+	b, _ := json.Marshal(projects)
+	c.httpClient = &http.Client{Transport: fakeTransport{fn: func(req *http.Request) *http.Response {
+		// Verify the endpoint
+		if !strings.Contains(req.URL.Path, "project") {
+			t.Fatalf("unexpected endpoint: %s", req.URL.Path)
+		}
+		return makeResp(200, string(b))
+	}}}
+
+	result, err := c.ListProjects()
+	if err != nil {
+		t.Fatalf("ListProjects failed: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 projects, got %d", len(result))
+	}
+	if result[0].Key != "PROJ" || result[0].Name != "My Project" {
+		t.Fatalf("unexpected first project: %+v", result[0])
+	}
+	if result[0].Lead.DisplayName != "John Doe" {
+		t.Fatalf("unexpected lead: %s", result[0].Lead.DisplayName)
+	}
+}
+
+func TestListProjects_APIError(t *testing.T) {
+	cfg := &config.JiraConfig{URL: "http://jira.example", Username: "me", Token: "tok"}
+	c := NewClient(cfg)
+	c.httpClient = &http.Client{Transport: fakeTransport{fn: func(req *http.Request) *http.Response {
+		return makeResp(403, `{"errorMessages":["Forbidden"]}`)
+	}}}
+
+	_, err := c.ListProjects()
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "403") {
+		t.Fatalf("expected 403 in error, got: %v", err)
+	}
+}

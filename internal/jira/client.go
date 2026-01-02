@@ -97,6 +97,17 @@ type Attachment struct {
 	Created  string `json:"created"`
 }
 
+// Project represents a Jira project (space)
+type Project struct {
+	ID   string `json:"id"`
+	Key  string `json:"key"`
+	Name string `json:"name"`
+	Lead struct {
+		DisplayName string `json:"displayName"`
+	} `json:"lead"`
+	ProjectTypeKey string `json:"projectTypeKey"`
+}
+
 func NewClient(cfg *config.JiraConfig) *Client {
 	return &Client{
 		config:     cfg,
@@ -809,4 +820,27 @@ func (c *Client) UpdateIssue(issueKey string, fields map[string]interface{}) err
 		return fmt.Errorf("API request failed with status: %d, body: %s", resp.StatusCode, string(data))
 	}
 	return nil
+}
+
+// ListProjects retrieves all Jira projects (spaces) accessible to the user
+func (c *Client) ListProjects() ([]Project, error) {
+	endpoint := "project?expand=lead"
+
+	resp, err := c.makeRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+	}
+
+	var projects []Project
+	if err := json.NewDecoder(resp.Body).Decode(&projects); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return projects, nil
 }

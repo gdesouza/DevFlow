@@ -153,11 +153,11 @@ func TestSearch_MultiPagePaging(t *testing.T) {
 		vals := r.URL.Query()
 		startAt := 0
 		if sa := vals.Get("startAt"); sa != "" {
-			fmt.Sscanf(sa, "%d", &startAt)
+            _,_ = fmt.Sscanf(sa, "%d", &startAt)
 		}
 		maxResults := 2
 		if mr := vals.Get("maxResults"); mr != "" {
-			fmt.Sscanf(mr, "%d", &maxResults)
+            _,_ = fmt.Sscanf(mr, "%d", &maxResults)
 		}
 
 		var resp SearchResponse

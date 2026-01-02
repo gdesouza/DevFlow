@@ -15,7 +15,8 @@ Available actions:
   mentioned   Find issues where you are mentioned
   create      Create a new issue (supports epic, story points, sprint, team, labels)
   comment     Add a comment to an issue
-  link        Add an external document / remote link to an issue`,
+  link        Add an external document / remote link to an issue
+  spaces      List available Jira projects (spaces)`,
 }
 
 func init() {
@@ -26,4 +27,5 @@ func init() {
 	tasksCmd.AddCommand(commentCmd)
 	tasksCmd.AddCommand(linkCmd)
 	tasksCmd.AddCommand(updateTaskCmd)
+	tasksCmd.AddCommand(spacesCmd)
 }

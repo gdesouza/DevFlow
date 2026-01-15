@@ -833,3 +833,93 @@ func (c *Client) SetCommitStatus(repoSlug, commitHash, state, key, name, urlStr,
 	}
 	return &status, nil
 }
+
+// Comment represents a pull request comment.
+type Comment struct {
+	ID      int `json:"id"`
+	Content struct {
+		Raw string `json:"raw"`
+	} `json:"content"`
+	User struct {
+		DisplayName string `json:"display_name"`
+		UUID        string `json:"uuid"`
+	} `json:"user"`
+	CreatedOn string `json:"created_on"`
+	UpdatedOn string `json:"updated_on"`
+	Inline    *struct {
+		Path string `json:"path"`
+		From int    `json:"from,omitempty"`
+		To   int    `json:"to,omitempty"`
+	} `json:"inline,omitempty"`
+}
+
+// CommentsResponse is the API response for pull request comments.
+type CommentsResponse struct {
+	Values []Comment `json:"values"`
+	Next   string    `json:"next"`
+}
+
+// GetPullRequestComments retrieves all comments for a given pull request.
+func (c *Client) GetPullRequestComments(repoSlug string, prID int) ([]Comment, error) {
+	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests/%d/comments", c.config.Workspace, repoSlug, prID)
+
+	var allComments []Comment
+	for endpoint != "" {
+		resp, err := c.makeRequest("GET", endpoint, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		}
+
+		var commentsResp CommentsResponse
+		if err := json.NewDecoder(resp.Body).Decode(&commentsResp); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		allComments = append(allComments, commentsResp.Values...)
+
+		// Handle pagination
+		if commentsResp.Next != "" {
+			// Extract just the path and query from the next URL
+			endpoint = strings.TrimPrefix(commentsResp.Next, c.baseURL+"/")
+		} else {
+			endpoint = ""
+		}
+	}
+
+	return allComments, nil
+}
+
+// CreatePullRequestComment adds a new comment to a pull request.
+func (c *Client) CreatePullRequestComment(repoSlug string, prID int, content string) (*Comment, error) {
+	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests/%d/comments", c.config.Workspace, repoSlug, prID)
+
+	payload := map[string]interface{}{
+		"content": map[string]string{
+			"raw": content,
+		},
+	}
+
+	resp, err := c.makeRequest("POST", endpoint, payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+	}
+
+	var comment Comment
+	if err := json.NewDecoder(resp.Body).Decode(&comment); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &comment, nil
+}

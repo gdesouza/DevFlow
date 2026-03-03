@@ -38,26 +38,28 @@ func TestGetJobBuilds(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
-			"builds": [
-				{
-					"number": 123,
-					"result": "SUCCESS",
-					"timestamp": 1640000000000,
-					"duration": 60000,
-					"url": "https://jenkins.example.com/job/test-job/123/",
-					"building": false
-				},
-				{
-					"number": 122,
-					"result": "FAILURE",
-					"timestamp": 1639900000000,
-					"duration": 45000,
-					"url": "https://jenkins.example.com/job/test-job/122/",
-					"building": false
-				}
-			]
-		}`))
+		if _, err := w.Write([]byte(`{
+		"builds": [
+			{
+				"number": 123,
+				"result": "SUCCESS",
+				"timestamp": 1640000000000,
+				"duration": 60000,
+				"url": "https://jenkins.example.com/job/test-job/123/",
+				"building": false
+			},
+			{
+				"number": 122,
+				"result": "FAILURE",
+				"timestamp": 1639900000000,
+				"duration": 45000,
+				"url": "https://jenkins.example.com/job/test-job/122/",
+				"building": false
+			}
+		]
+	}`)); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -97,7 +99,9 @@ func TestGetBuildLog(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(expectedLog))
+		if _, err := w.Write([]byte(expectedLog)); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 

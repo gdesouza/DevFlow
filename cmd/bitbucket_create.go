@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os/exec"
@@ -40,6 +41,7 @@ var createPRCmd = &cobra.Command{
 	Long:    `Create a new pull request with the specified title, description, reviewers, and optional auto-detected branches`,
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		jsonOutput, _ := cmd.Flags().GetBool("json")
 		title := args[0]
 
 		// Load configuration
@@ -92,6 +94,27 @@ var createPRCmd = &cobra.Command{
 			log.Fatalf("Error creating pull request: %v", err)
 		}
 
+		if jsonOutput {
+			output := struct {
+				Workspace   string                 `json:"workspace"`
+				Repository  string                 `json:"repository"`
+				PullRequest *bitbucket.PullRequest `json:"pull_request"`
+				URL         string                 `json:"url"`
+			}{
+				Workspace:   cfg.Bitbucket.Workspace,
+				Repository:  slug,
+				PullRequest: pr,
+				URL:         pr.Links.HTML.Href,
+			}
+
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				log.Fatalf("Error marshaling JSON: %v", err)
+			}
+			fmt.Println(string(jsonBytes))
+			return
+		}
+
 		// Display success message
 		fmt.Printf("✅ Successfully created pull request!\n")
 		fmt.Printf("🔗 #%d - %s\n", pr.ID, pr.Title)
@@ -119,6 +142,7 @@ func init() {
 	createPRCmd.Flags().StringVarP(&prDescription, "description", "m", "", "Pull request description/body")
 	createPRCmd.Flags().StringSliceVarP(&prReviewers, "reviewer", "R", []string{}, "Reviewer username (repeatable)")
 	createPRCmd.Flags().BoolVarP(&openInBrowser, "open", "o", false, "Open PR in browser after creation")
+	createPRCmd.Flags().Bool("json", false, "Output in JSON format")
 	if err := createPRCmd.MarkFlagRequired("repo"); err != nil {
 		panic(err)
 	}

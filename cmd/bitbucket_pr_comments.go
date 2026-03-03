@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -18,6 +19,7 @@ var prCommentsCmd = &cobra.Command{
 	Long:    `Display all comments on a specific pull request, including inline code comments.`,
 	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
+		jsonOutput, _ := cmd.Flags().GetBool("json")
 		repoSlug := args[0]
 		prIDStr := args[1]
 
@@ -52,13 +54,38 @@ var prCommentsCmd = &cobra.Command{
 			log.Fatalf("Error fetching pull request comments: %v", err)
 		}
 
+		// Organize comments into threads
+		threads := organizeThreads(comments)
+
+		if jsonOutput {
+			output := struct {
+				Workspace     string          `json:"workspace"`
+				Repository    string          `json:"repository"`
+				PullRequestID int             `json:"pull_request_id"`
+				TotalComments int             `json:"total_comments"`
+				TotalThreads  int             `json:"total_threads"`
+				Threads       []CommentThread `json:"threads"`
+			}{
+				Workspace:     cfg.Bitbucket.Workspace,
+				Repository:    repoSlug,
+				PullRequestID: prID,
+				TotalComments: len(comments),
+				TotalThreads:  len(threads),
+				Threads:       threads,
+			}
+
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				log.Fatalf("Error marshaling JSON: %v", err)
+			}
+			fmt.Println(string(jsonBytes))
+			return
+		}
+
 		if len(comments) == 0 {
 			fmt.Printf("No comments found on pull request #%d\n", prID)
 			return
 		}
-
-		// Organize comments into threads
-		threads := organizeThreads(comments)
 
 		// Display thread summary
 		fmt.Printf("💬 Comments on PR #%d (%d total, %d threads)\n", prID, len(comments), len(threads))
@@ -71,6 +98,10 @@ var prCommentsCmd = &cobra.Command{
 			}
 		}
 	},
+}
+
+func init() {
+	prCommentsCmd.Flags().Bool("json", false, "Output in JSON format")
 }
 
 type CommentThread struct {

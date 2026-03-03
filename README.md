@@ -336,6 +336,54 @@ Reply to a specific comment thread:
 # Where 456 is the thread ID from the comments list
 ```
 
+#### JSON Output for Automation & AI Integration
+All pull request commands now support `--json` flag for machine-readable output, perfect for AI agents and automation scripts:
+
+```bash
+# List pull requests with JSON output
+./devflow pullrequest list --json
+./devflow pullrequest list --repo my-repo --json
+
+# Show PR details with JSON
+./devflow pullrequest show my-repo 123 --json
+./devflow pullrequest show my-repo 123 --diff --json  # includes diff
+
+# Get PR diff in JSON
+./devflow pullrequest diff my-repo 123 --json
+
+# List comments with JSON (includes thread structure)
+./devflow pullrequest comments my-repo 123 --json
+
+# Get build statuses with JSON
+./devflow pullrequest builds my-repo 123 --json
+
+# List your PRs with JSON
+./devflow pullrequest mine --json
+./devflow pullrequest mine --repo my-repo --json
+
+# List PRs you're participating in with JSON
+./devflow pullrequest participating --json
+./devflow pullrequest participating --repo my-repo --json
+
+# Create PR and get result as JSON
+./devflow pullrequest create "Feature" --repo my-repo --json
+
+# Add comment and get result as JSON
+./devflow pullrequest add-comment my-repo 123 "LGTM" --json
+
+# Reply to comment and get result as JSON
+./devflow pullrequest comment-reply my-repo 123 456 "Fixed" --json
+
+# Set commit status and get result as JSON
+./devflow pullrequest set-status my-repo abc123 --state SUCCESSFUL --key ci/test --json
+```
+
+All JSON outputs include:
+- Workspace and repository information
+- Structured data (no emojis or formatting)
+- Consistent field naming (snake_case)
+- Complete metadata for further processing
+
 #### Set PR Status with AI Review Key
 When using the AI reviewer, set status with the key `ai-review`:
 ```bash

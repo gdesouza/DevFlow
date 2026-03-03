@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -19,6 +20,7 @@ var showPRCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		showDiff, _ := cmd.Flags().GetBool("diff")
+		jsonOutput, _ := cmd.Flags().GetBool("json")
 		repoSlug := args[0]
 		prIDStr := args[1]
 
@@ -53,6 +55,36 @@ var showPRCmd = &cobra.Command{
 			log.Fatalf("Error fetching pull request details: %v", err)
 		}
 
+		if jsonOutput {
+			output := struct {
+				Workspace  string                        `json:"workspace"`
+				Repository string                        `json:"repository"`
+				Details    *bitbucket.PullRequestDetails `json:"details"`
+				Diff       string                        `json:"diff,omitempty"`
+				URL        string                        `json:"url"`
+			}{
+				Workspace:  cfg.Bitbucket.Workspace,
+				Repository: repoSlug,
+				Details:    pr,
+				URL:        fmt.Sprintf("https://bitbucket.org/%s/%s/pull-requests/%d", cfg.Bitbucket.Workspace, repoSlug, pr.ID),
+			}
+
+			if showDiff {
+				diff, err := client.GetPullRequestDiff(repoSlug, prID)
+				if err != nil {
+					log.Fatalf("Error fetching diff: %v", err)
+				}
+				output.Diff = diff
+			}
+
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				log.Fatalf("Error marshaling JSON: %v", err)
+			}
+			fmt.Println(string(jsonBytes))
+			return
+		}
+
 		// Display pull request details
 		displayPRDetails(pr, cfg.Bitbucket.Workspace, repoSlug)
 
@@ -71,6 +103,7 @@ var showPRCmd = &cobra.Command{
 
 func init() {
 	showPRCmd.Flags().Bool("diff", false, "Show file diff for the pull request")
+	showPRCmd.Flags().Bool("json", false, "Output in JSON format")
 }
 
 func displayPRDetails(pr *bitbucket.PullRequestDetails, workspace, repoSlug string) {

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -17,6 +18,7 @@ var addCommentCmd = &cobra.Command{
 	Long:    `Create a new comment on a specific pull request.`,
 	Args:    cobra.MinimumNArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
+		jsonOutput, _ := cmd.Flags().GetBool("json")
 		repoSlug := args[0]
 		prIDStr := args[1]
 		// Join all remaining args as the comment content (in case it has spaces)
@@ -59,6 +61,27 @@ var addCommentCmd = &cobra.Command{
 			log.Fatalf("Error creating pull request comment: %v", err)
 		}
 
+		if jsonOutput {
+			output := struct {
+				Workspace     string             `json:"workspace"`
+				Repository    string             `json:"repository"`
+				PullRequestID int                `json:"pull_request_id"`
+				Comment       *bitbucket.Comment `json:"comment"`
+			}{
+				Workspace:     cfg.Bitbucket.Workspace,
+				Repository:    repoSlug,
+				PullRequestID: prID,
+				Comment:       comment,
+			}
+
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				log.Fatalf("Error marshaling JSON: %v", err)
+			}
+			fmt.Println(string(jsonBytes))
+			return
+		}
+
 		// Display success message
 		fmt.Printf("✅ Comment added successfully to PR #%d\n", prID)
 		fmt.Printf("💬 Comment ID: %d\n", comment.ID)
@@ -67,4 +90,8 @@ var addCommentCmd = &cobra.Command{
 		fmt.Println("Comment content:")
 		fmt.Println(comment.Content.Raw)
 	},
+}
+
+func init() {
+	addCommentCmd.Flags().Bool("json", false, "Output in JSON format")
 }

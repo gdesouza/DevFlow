@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -17,6 +18,7 @@ var commentReplyCmd = &cobra.Command{
 	Long:    `Reply to a specific comment thread (inline or top-level) on a pull request. Avoids adding top-level noise.`,
 	Args:    cobra.ExactArgs(4),
 	Run: func(cmd *cobra.Command, args []string) {
+		jsonOutput, _ := cmd.Flags().GetBool("json")
 		repoSlug := args[0]
 		prIDStr := args[1]
 		threadIDStr := args[2]
@@ -58,8 +60,35 @@ var commentReplyCmd = &cobra.Command{
 			log.Fatalf("Error replying to comment: %v", err)
 		}
 
+		if jsonOutput {
+			output := struct {
+				Workspace     string             `json:"workspace"`
+				Repository    string             `json:"repository"`
+				PullRequestID int                `json:"pull_request_id"`
+				ThreadID      int                `json:"thread_id"`
+				Comment       *bitbucket.Comment `json:"comment"`
+			}{
+				Workspace:     cfg.Bitbucket.Workspace,
+				Repository:    repoSlug,
+				PullRequestID: prID,
+				ThreadID:      threadID,
+				Comment:       comment,
+			}
+
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				log.Fatalf("Error marshaling JSON: %v", err)
+			}
+			fmt.Println(string(jsonBytes))
+			return
+		}
+
 		fmt.Printf("✅ Successfully replied to thread #%d\n", threadID)
 		fmt.Printf("Comment ID: %d\n", comment.ID)
 		fmt.Printf("Created: %s\n", comment.CreatedOn)
 	},
+}
+
+func init() {
+	commentReplyCmd.Flags().Bool("json", false, "Output in JSON format")
 }

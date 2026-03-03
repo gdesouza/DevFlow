@@ -34,7 +34,7 @@ deps: ## Install dependencies
 
 # Development setup
 dev-setup: deps ## Development setup
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v2.0.4
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.4
 
 # Check for unstaged/uncommitted files
 check-clean: ## Check for unstaged/uncommitted files

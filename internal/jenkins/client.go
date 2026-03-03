@@ -96,11 +96,7 @@ func (c *Client) GetJobBuilds(jobName string, limit int) ([]Build, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			// log or ignore
-		}
-	}()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -123,11 +119,7 @@ func (c *Client) GetBuildLog(jobName string, buildNumber int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			// log or ignore
-		}
-	}()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -150,11 +142,7 @@ func (c *Client) GetBuildStages(jobName string, buildNumber int) ([]BuildStage, 
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			// log or ignore
-		}
-	}()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		// Pipeline API might not be available for non-pipeline jobs
@@ -201,11 +189,7 @@ func (c *Client) GetFailedStepLog(jobName string, buildNumber int) (string, erro
 		path := fmt.Sprintf("/job/%s/%d/execution/node/%s/wfapi/log", jobName, buildNumber, failedStage.ID)
 		resp, err := c.makeRequest("GET", path)
 		if err == nil {
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					// log or ignore
-				}
-			}()
+			defer func() { _ = resp.Body.Close() }()
 			if resp.StatusCode == http.StatusOK {
 				log, err := io.ReadAll(resp.Body)
 				if err == nil {

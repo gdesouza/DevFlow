@@ -132,17 +132,18 @@ func TestGetFailedStepLog_PipelineFailedStage(t *testing.T) {
 	calls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		if r.URL.Path == "/job/job/1/wfapi/describe" {
+		switch r.URL.Path {
+		case "/job/job/1/wfapi/describe":
 			w.WriteHeader(http.StatusOK)
 			if _, err := fmt.Fprint(w, stageJson); err != nil {
 				t.Fatalf("write failed: %v", err)
 			}
-		} else if r.URL.Path == "/job/job/1/execution/node/1234/wfapi/log" {
+		case "/job/job/1/execution/node/1234/wfapi/log":
 			w.WriteHeader(http.StatusOK)
 			if _, err := fmt.Fprint(w, stageLog); err != nil {
 				t.Fatalf("write failed: %v", err)
 			}
-		} else {
+		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
@@ -164,14 +165,15 @@ func TestGetFailedStepLog_PipelineFallback(t *testing.T) {
 	calls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		if r.URL.Path == "/job/job/1/wfapi/describe" {
+		switch r.URL.Path {
+		case "/job/job/1/wfapi/describe":
 			w.WriteHeader(http.StatusOK)
 			if _, err := fmt.Fprint(w, stageJson); err != nil {
 				t.Fatalf("write failed: %v", err)
 			}
-		} else if r.URL.Path == "/job/job/1/execution/node/456/wfapi/log" {
+		case "/job/job/1/execution/node/456/wfapi/log":
 			w.WriteHeader(http.StatusInternalServerError)
-		} else if r.URL.Path == "/job/job/1/consoleText" {
+		case "/job/job/1/consoleText":
 			w.WriteHeader(http.StatusOK)
 			if _, err := fmt.Fprint(w, "main log"); err != nil {
 				t.Fatalf("write failed: %v", err)
@@ -195,9 +197,10 @@ func TestGetFailedStepLog_NonPipelineJob(t *testing.T) {
 	calls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		if r.URL.Path == "/job/job/1/wfapi/describe" {
+		switch r.URL.Path {
+		case "/job/job/1/wfapi/describe":
 			w.WriteHeader(http.StatusNotFound)
-		} else if r.URL.Path == "/job/job/1/consoleText" {
+		case "/job/job/1/consoleText":
 			w.WriteHeader(http.StatusOK)
 			if _, err := fmt.Fprint(w, "full log"); err != nil {
 				t.Fatalf("write failed: %v", err)

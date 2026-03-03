@@ -15,10 +15,13 @@ var addCommentCmd = &cobra.Command{
 	Use:     "add-comment [repo-slug] [pr-id] [comment]",
 	Aliases: []string{"comment-add", "create-comment"},
 	Short:   "Add a comment to a pull request",
-	Long:    `Create a new comment on a specific pull request.`,
+	Long:    `Create a new comment on a specific pull request. Use --file and --line to post an inline comment anchored to a specific location in the diff.`,
 	Args:    cobra.MinimumNArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		jsonOutput, _ := cmd.Flags().GetBool("json")
+		filePath, _ := cmd.Flags().GetString("file")
+		line, _ := cmd.Flags().GetInt("line")
+
 		repoSlug := args[0]
 		prIDStr := args[1]
 		// Join all remaining args as the comment content (in case it has spaces)
@@ -33,6 +36,11 @@ var addCommentCmd = &cobra.Command{
 		prID, err := strconv.Atoi(prIDStr)
 		if err != nil {
 			log.Fatalf("Invalid pull request ID: %s", prIDStr)
+		}
+
+		// Validate inline flags: both must be set, or neither
+		if (filePath == "") != (line == 0) {
+			log.Fatal("--file and --line must be used together")
 		}
 
 		// Load configuration
@@ -55,8 +63,13 @@ var addCommentCmd = &cobra.Command{
 		// Create Bitbucket client
 		client := bitbucket.NewClient(&cfg.Bitbucket)
 
-		// Create comment
-		comment, err := client.CreatePullRequestComment(repoSlug, prID, content)
+		// Create comment (inline or top-level)
+		var comment *bitbucket.Comment
+		if filePath != "" {
+			comment, err = client.CreatePullRequestInlineComment(repoSlug, prID, content, filePath, line)
+		} else {
+			comment, err = client.CreatePullRequestComment(repoSlug, prID, content)
+		}
 		if err != nil {
 			log.Fatalf("Error creating pull request comment: %v", err)
 		}
@@ -83,7 +96,11 @@ var addCommentCmd = &cobra.Command{
 		}
 
 		// Display success message
-		fmt.Printf("✅ Comment added successfully to PR #%d\n", prID)
+		if filePath != "" {
+			fmt.Printf("✅ Inline comment added successfully to PR #%d (%s:%d)\n", prID, filePath, line)
+		} else {
+			fmt.Printf("✅ Comment added successfully to PR #%d\n", prID)
+		}
 		fmt.Printf("💬 Comment ID: %d\n", comment.ID)
 		fmt.Printf("📅 Created: %s\n", comment.CreatedOn)
 		fmt.Println()
@@ -94,4 +111,6 @@ var addCommentCmd = &cobra.Command{
 
 func init() {
 	addCommentCmd.Flags().Bool("json", false, "Output in JSON format")
+	addCommentCmd.Flags().String("file", "", "File path for inline comment (requires --line)")
+	addCommentCmd.Flags().Int("line", 0, "New-file line number for inline comment (requires --file)")
 }

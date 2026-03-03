@@ -280,19 +280,23 @@ func (c *Client) GetPullRequests(repoSlug string) ([]PullRequest, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to make request: %w", err)
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 		}
 
 		var prResp PullRequestsResponse
 		if err := json.NewDecoder(resp.Body).Decode(&prResp); err != nil {
+			resp.Body.Close()
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
 		allPRs = append(allPRs, prResp.Values...)
+
+		// We're done with this response; close the body before the next iteration.
+		resp.Body.Close()
 
 		// Handle pagination
 		if prResp.Next != "" {
@@ -317,19 +321,23 @@ func (c *Client) GetParticipatingPullRequests(repoSlug, username string) ([]Pull
 		if err != nil {
 			return nil, fmt.Errorf("failed to make request: %w", err)
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 		}
 
 		var prResp PullRequestsResponse
 		if err := json.NewDecoder(resp.Body).Decode(&prResp); err != nil {
+			resp.Body.Close()
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
 		allPRs = append(allPRs, prResp.Values...)
+
+		// We're done with this response; close the body before the next iteration.
+		resp.Body.Close()
 
 		// Handle pagination
 		if prResp.Next != "" {
@@ -808,19 +816,23 @@ func (c *Client) GetPullRequestCommits(repoSlug string, prID int) ([]Commit, err
 		if err != nil {
 			return nil, fmt.Errorf("failed to make request: %w", err)
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 		}
 
 		var commitsResp CommitsResponse
 		if err := json.NewDecoder(resp.Body).Decode(&commitsResp); err != nil {
+			resp.Body.Close()
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
 		allCommits = append(allCommits, commitsResp.Values...)
+
+		// We're done with this response; close the body before the next iteration.
+		resp.Body.Close()
 
 		// Handle pagination
 		if commitsResp.Next != "" {
@@ -843,19 +855,23 @@ func (c *Client) GetCommitStatuses(repoSlug, commitHash string) ([]CommitStatus,
 		if err != nil {
 			return nil, fmt.Errorf("failed to make request: %w", err)
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 		}
 
 		var statusesResp CommitStatusesResponse
 		if err := json.NewDecoder(resp.Body).Decode(&statusesResp); err != nil {
+			resp.Body.Close()
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
 		allStatuses = append(allStatuses, statusesResp.Values...)
+
+		// We're done with this response; close the body before the next iteration.
+		resp.Body.Close()
 
 		// Handle pagination
 		if statusesResp.Next != "" {
@@ -991,11 +1007,14 @@ func (c *Client) CreatePullRequestComment(repoSlug string, prID int, content str
 
 // ReplyToPullRequestComment replies to a specific comment thread
 func (c *Client) ReplyToPullRequestComment(repoSlug string, prID int, parentCommentID int, content string) (*Comment, error) {
-	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests/%d/comments/%d", c.config.Workspace, repoSlug, prID, parentCommentID)
+	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests/%d/comments", c.config.Workspace, repoSlug, prID)
 
 	payload := map[string]interface{}{
 		"content": map[string]string{
 			"raw": content,
+		},
+		"parent": map[string]int{
+			"id": parentCommentID,
 		},
 	}
 

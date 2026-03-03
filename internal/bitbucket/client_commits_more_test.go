@@ -23,16 +23,17 @@ func TestGetPullRequestCommits_Paginated(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
 
 		if r.URL.Path == "/2.0/repositories/workspace/repo/pullrequests/1/commits" && r.URL.RawQuery == "" {
 			// First page - set Next to point to our test server
+			w.WriteHeader(http.StatusOK)
 			page1.Next = serverURL + "/2.0/repositories/workspace/repo/pullrequests/1/commits?page=2"
 			if err := json.NewEncoder(w).Encode(page1); err != nil {
 				t.Fatalf("failed to write response: %v", err)
 			}
 		} else if r.URL.Path == "/2.0/repositories/workspace/repo/pullrequests/1/commits" && r.URL.RawQuery == "page=2" {
 			// Second page
+			w.WriteHeader(http.StatusOK)
 			if err := json.NewEncoder(w).Encode(page2); err != nil {
 				t.Fatalf("failed to write response: %v", err)
 			}

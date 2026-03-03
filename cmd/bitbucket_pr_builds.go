@@ -63,7 +63,10 @@ Displays per-commit status including state, key/name, and URL.`,
 					PullRequestID: prID,
 					Commits:       []struct{}{},
 				}
-				jsonBytes, _ := json.MarshalIndent(output, "", "  ")
+				jsonBytes, err := json.MarshalIndent(output, "", "  ")
+				if err != nil {
+					log.Fatalf("Error marshaling JSON output: %v", err)
+				}
 				fmt.Println(string(jsonBytes))
 			} else {
 				fmt.Println("No commits found for this pull request.")

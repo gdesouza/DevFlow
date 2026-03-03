@@ -128,12 +128,31 @@ func organizeThreads(comments []bitbucket.Comment) []CommentThread {
 		}
 	}
 
-	// Second pass: organize replies
+	// Helper function to walk parent chain to find root comment ID
+	findRootID := func(c *bitbucket.Comment) int {
+		current := c
+		for current.Parent != nil {
+			// Find the parent comment
+			for i := range comments {
+				if comments[i].ID == current.Parent.ID {
+					current = &comments[i]
+					break
+				}
+			}
+			// Safety check: if we couldn't find the parent, return current ID
+			if current.Parent != nil && current.ID == c.ID {
+				return c.ID
+			}
+		}
+		return current.ID
+	}
+
+	// Second pass: organize replies under their root comments
 	for i := range comments {
 		comment := &comments[i]
 		if comment.Parent != nil {
-			parentID := comment.Parent.ID
-			if thread, exists := threadMap[parentID]; exists {
+			rootID := findRootID(comment)
+			if thread, exists := threadMap[rootID]; exists {
 				thread.Replies = append(thread.Replies, comment)
 			}
 		}

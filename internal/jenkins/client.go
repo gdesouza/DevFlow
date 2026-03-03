@@ -144,9 +144,13 @@ func (c *Client) GetBuildStages(jobName string, buildNumber int) ([]BuildStage, 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode == http.StatusNotFound {
 		// Pipeline API might not be available for non-pipeline jobs
 		return nil, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 	}
 
 	var result struct {

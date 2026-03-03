@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"devflow/internal/config"
@@ -102,9 +103,5 @@ func formatDuration(duration int64) string {
 }
 
 func repeat(s string, n int) string {
-	result := ""
-	for i := 0; i < n; i++ {
-		result += s
-	}
-	return result
+	return strings.Repeat(s, n)
 }

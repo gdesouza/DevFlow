@@ -130,6 +130,7 @@ type PullRequestDetails struct {
 
 type PullRequestsResponse struct {
 	Values []PullRequest `json:"values"`
+	Next   string        `json:"next"`
 }
 
 func NewClient(cfg *config.BitbucketConfig) *Client {
@@ -273,23 +274,36 @@ func (c *Client) TestBasicAuth() error {
 func (c *Client) GetPullRequests(repoSlug string) ([]PullRequest, error) {
 	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests", c.config.Workspace, repoSlug)
 
-	resp, err := c.makeRequest("GET", endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
+	var allPRs []PullRequest
+	for endpoint != "" {
+		resp, err := c.makeRequest("GET", endpoint, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make request: %w", err)
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		}
+
+		var prResp PullRequestsResponse
+		if err := json.NewDecoder(resp.Body).Decode(&prResp); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		allPRs = append(allPRs, prResp.Values...)
+
+		// Handle pagination
+		if prResp.Next != "" {
+			// Extract just the path and query from the next URL
+			endpoint = strings.TrimPrefix(prResp.Next, c.baseURL+"/")
+		} else {
+			endpoint = ""
+		}
 	}
 
-	var prResp PullRequestsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&prResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return prResp.Values, nil
+	return allPRs, nil
 }
 
 // GetParticipatingPullRequests retrieves pull requests where the user participates (author, reviewer, etc.)
@@ -297,23 +311,36 @@ func (c *Client) GetParticipatingPullRequests(repoSlug, username string) ([]Pull
 	query := url.QueryEscape(fmt.Sprintf("participants.username=\"%s\"", username))
 	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests?q=%s", c.config.Workspace, repoSlug, query)
 
-	resp, err := c.makeRequest("GET", endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
+	var allPRs []PullRequest
+	for endpoint != "" {
+		resp, err := c.makeRequest("GET", endpoint, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make request: %w", err)
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		}
+
+		var prResp PullRequestsResponse
+		if err := json.NewDecoder(resp.Body).Decode(&prResp); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		allPRs = append(allPRs, prResp.Values...)
+
+		// Handle pagination
+		if prResp.Next != "" {
+			// Extract just the path and query from the next URL
+			endpoint = strings.TrimPrefix(prResp.Next, c.baseURL+"/")
+		} else {
+			endpoint = ""
+		}
 	}
 
-	var prResp PullRequestsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&prResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return prResp.Values, nil
+	return allPRs, nil
 }
 
 // GetPullRequestsWithReviewers retrieves pull requests with reviewer information for a specific repository
@@ -750,6 +777,7 @@ type Commit struct {
 // CommitsResponse is the API response for pull request commits.
 type CommitsResponse struct {
 	Values []Commit `json:"values"`
+	Next   string   `json:"next"`
 }
 
 // CommitStatus represents a build/deployment/status associated with a commit.
@@ -767,44 +795,77 @@ type CommitStatus struct {
 // CommitStatusesResponse is the API response for commit statuses.
 type CommitStatusesResponse struct {
 	Values []CommitStatus `json:"values"`
+	Next   string         `json:"next"`
 }
 
 // GetPullRequestCommits retrieves commits for a given pull request.
 func (c *Client) GetPullRequestCommits(repoSlug string, prID int) ([]Commit, error) {
 	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests/%d/commits", c.config.Workspace, repoSlug, prID)
-	resp, err := c.makeRequest("GET", endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+
+	var allCommits []Commit
+	for endpoint != "" {
+		resp, err := c.makeRequest("GET", endpoint, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		}
+
+		var commitsResp CommitsResponse
+		if err := json.NewDecoder(resp.Body).Decode(&commitsResp); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		allCommits = append(allCommits, commitsResp.Values...)
+
+		// Handle pagination
+		if commitsResp.Next != "" {
+			endpoint = strings.TrimPrefix(commitsResp.Next, c.baseURL+"/")
+		} else {
+			endpoint = ""
+		}
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
-	}
-	var commitsResp CommitsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&commitsResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-	return commitsResp.Values, nil
+
+	return allCommits, nil
 }
 
 // GetCommitStatuses retrieves build/status information for a given commit hash.
 func (c *Client) GetCommitStatuses(repoSlug, commitHash string) ([]CommitStatus, error) {
 	endpoint := fmt.Sprintf("repositories/%s/%s/commit/%s/statuses", c.config.Workspace, repoSlug, commitHash)
-	resp, err := c.makeRequest("GET", endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+
+	var allStatuses []CommitStatus
+	for endpoint != "" {
+		resp, err := c.makeRequest("GET", endpoint, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		}
+
+		var statusesResp CommitStatusesResponse
+		if err := json.NewDecoder(resp.Body).Decode(&statusesResp); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		allStatuses = append(allStatuses, statusesResp.Values...)
+
+		// Handle pagination
+		if statusesResp.Next != "" {
+			endpoint = strings.TrimPrefix(statusesResp.Next, c.baseURL+"/")
+		} else {
+			endpoint = ""
+		}
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
-	}
-	var statusesResp CommitStatusesResponse
-	if err := json.NewDecoder(resp.Body).Decode(&statusesResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-	return statusesResp.Values, nil
+
+	return allStatuses, nil
 }
 
 // SetCommitStatus creates or updates a build/status for a commit.
@@ -851,6 +912,10 @@ type Comment struct {
 		From int    `json:"from,omitempty"`
 		To   int    `json:"to,omitempty"`
 	} `json:"inline,omitempty"`
+	Parent *struct {
+		ID int `json:"id"`
+	} `json:"parent,omitempty"`
+	Resolved bool `json:"resolved,omitempty"`
 }
 
 // CommentsResponse is the API response for pull request comments.
@@ -898,6 +963,35 @@ func (c *Client) GetPullRequestComments(repoSlug string, prID int) ([]Comment, e
 // CreatePullRequestComment adds a new comment to a pull request.
 func (c *Client) CreatePullRequestComment(repoSlug string, prID int, content string) (*Comment, error) {
 	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests/%d/comments", c.config.Workspace, repoSlug, prID)
+
+	payload := map[string]interface{}{
+		"content": map[string]string{
+			"raw": content,
+		},
+	}
+
+	resp, err := c.makeRequest("POST", endpoint, payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+	}
+
+	var comment Comment
+	if err := json.NewDecoder(resp.Body).Decode(&comment); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &comment, nil
+}
+
+// ReplyToPullRequestComment replies to a specific comment thread
+func (c *Client) ReplyToPullRequestComment(repoSlug string, prID int, parentCommentID int, content string) (*Comment, error) {
+	endpoint := fmt.Sprintf("repositories/%s/%s/pullrequests/%d/comments/%d", c.config.Workspace, repoSlug, prID, parentCommentID)
 
 	payload := map[string]interface{}{
 		"content": map[string]string{

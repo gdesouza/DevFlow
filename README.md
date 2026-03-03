@@ -25,6 +25,14 @@ A powerful command-line interface tool for streamlining development workflows wi
 - 🔐 **API Token Authentication** - Secure authentication with Bitbucket API tokens
 - 📊 **Repository Management** - Manage your Bitbucket repositories
 - 🔗 **Direct Links** - Clickable URLs to open pull requests in your browser
+- 📄 **PR Diff** - View unified diffs for pull requests
+- 💬 **PR Comments** - List and manage comment threads with resolution status
+- 💭 **Comment Reply** - Reply inline to specific comment threads
+- 🔨 **Build Status** - View and set commit build statuses
+
+### Jenkins Integration 🔧
+- 🔨 **List Builds** - View recent builds with status and build numbers
+- 📋 **Build Logs** - Fetch console output, optionally scoped to failing stages
 
 #### Repository Commands Summary
 `devflow repo` provides:
@@ -87,6 +95,11 @@ Set up your API credentials:
 ./devflow config set bitbucket.workspace your-workspace
 ./devflow config set bitbucket.username your-username
 ./devflow config set bitbucket.token your-bitbucket-api-token
+
+# Jenkins configuration (optional)
+./devflow config set jenkins.url https://jenkins.example.com
+./devflow config set jenkins.username your-username
+./devflow config set jenkins.token your-jenkins-api-token
 ```
 
 ### 3. Get Your API Tokens
@@ -299,6 +312,39 @@ Notes:
 
 ### Pull Request & Repo Commands
 
+#### PR Diff (New)
+View the unified diff for a pull request:
+```bash
+./devflow pullrequest diff your-repo-name 123
+```
+
+#### PR Comments (Enhanced)
+List all comments with thread organization and resolution status:
+```bash
+./devflow pullrequest comments your-repo-name 123
+# Shows:
+# - Thread ID for each comment
+# - Resolution status (✅ RESOLVED / ⚠️ UNRESOLVED)
+# - File and line numbers for inline comments
+# - Nested replies within threads
+```
+
+#### PR Comment Reply (New)
+Reply to a specific comment thread:
+```bash
+./devflow pullrequest comment-reply your-repo-name 123 456 "Thanks for the feedback!"
+# Where 456 is the thread ID from the comments list
+```
+
+#### Set PR Status with AI Review Key
+When using the AI reviewer, set status with the key `ai-review`:
+```bash
+devflow pullrequest set-status your-repo-name a1b2c3d4e5f6 \
+  --state SUCCESSFUL \
+  --key ai-review \
+  --description "AI review passed"
+```
+
 #### Show Repository README (New)
 Display the README for a Bitbucket repository (tries common filename variants)
 ```bash
@@ -361,8 +407,13 @@ Current PR command behavior (scoped to watched repos):
 ```bash
 # List PRs in a specific watched repo (fails if not watched)
 ./devflow pullrequest list --repo my-repo
+
 # Aggregate PRs across all watched repos
 ./devflow pullrequest list
+
+# Output in JSON format (for scripts/automation)
+./devflow pullrequest list --json
+./devflow pullrequest list --repo my-repo --json
 
 # PRs where you are author (watched repos unless --all-repos)
 ./devflow pullrequest mine                # aggregate across watched
@@ -422,6 +473,28 @@ devflow pullrequest set-status your-repo-name a1b2c3d4e5f6 \
 States: SUCCESSFUL, FAILED, INPROGRESS, STOPPED, ERROR, PENDING, CANCELLED
 Reusing the same `--key` updates the existing status entry.
 If you omit --name or --url they will be reused from an existing status (if present) or default (name=key). --description is optional; omit it to keep existing text.
+
+### Jenkins Commands
+
+#### List Recent Builds
+View recent builds for a Jenkins job:
+```bash
+# Default (last 10 builds)
+./devflow jenkins builds my-pipeline
+
+# Specify number of builds
+./devflow jenkins builds my-pipeline --limit 20
+```
+
+#### Fetch Build Logs
+Retrieve console logs for a specific build:
+```bash
+# Full console log
+./devflow jenkins logs my-pipeline 123
+
+# Only failed stage logs (for pipeline jobs)
+./devflow jenkins logs my-pipeline 123 --failed-step
+```
 
 
 ### Configuration Commands

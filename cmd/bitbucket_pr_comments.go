@@ -57,26 +57,82 @@ var prCommentsCmd = &cobra.Command{
 			return
 		}
 
-		// Display comments
-		fmt.Printf("💬 Comments on PR #%d (%d total)\n", prID, len(comments))
+		// Organize comments into threads
+		threads := organizeThreads(comments)
+
+		// Display thread summary
+		fmt.Printf("💬 Comments on PR #%d (%d total, %d threads)\n", prID, len(comments), len(threads))
 		fmt.Println(strings.Repeat("=", 80))
 
-		for i, comment := range comments {
-			displayComment(&comment, i+1)
-			if i < len(comments)-1 {
+		for i, thread := range threads {
+			displayThread(&thread, i+1)
+			if i < len(threads)-1 {
 				fmt.Println(strings.Repeat("-", 80))
 			}
 		}
 	},
 }
 
-func displayComment(comment *bitbucket.Comment, index int) {
-	fmt.Printf("[%d] 👤 %s (ID: %d)\n", index, comment.User.DisplayName, comment.ID)
-	fmt.Printf("📅 Created: %s\n", comment.CreatedOn)
+type CommentThread struct {
+	RootComment *bitbucket.Comment
+	Replies     []*bitbucket.Comment
+	Resolved    bool
+}
 
-	if comment.UpdatedOn != comment.CreatedOn {
-		fmt.Printf("🔄 Updated: %s\n", comment.UpdatedOn)
+func organizeThreads(comments []bitbucket.Comment) []CommentThread {
+	// Map to store threads by root comment ID
+	threadMap := make(map[int]*CommentThread)
+	var rootComments []*bitbucket.Comment
+
+	// First pass: identify root comments
+	for i := range comments {
+		comment := &comments[i]
+		if comment.Parent == nil {
+			rootComments = append(rootComments, comment)
+			threadMap[comment.ID] = &CommentThread{
+				RootComment: comment,
+				Replies:     []*bitbucket.Comment{},
+				Resolved:    comment.Resolved,
+			}
+		}
 	}
+
+	// Second pass: organize replies
+	for i := range comments {
+		comment := &comments[i]
+		if comment.Parent != nil {
+			parentID := comment.Parent.ID
+			if thread, exists := threadMap[parentID]; exists {
+				thread.Replies = append(thread.Replies, comment)
+			}
+		}
+	}
+
+	// Convert map to slice in order of root comments
+	var threads []CommentThread
+	for _, rootComment := range rootComments {
+		if thread, exists := threadMap[rootComment.ID]; exists {
+			threads = append(threads, *thread)
+		}
+	}
+
+	return threads
+}
+
+func displayThread(thread *CommentThread, index int) {
+	comment := thread.RootComment
+
+	// Display thread header with resolution status
+	resolvedStatus := ""
+	if thread.Resolved {
+		resolvedStatus = " ✅ RESOLVED"
+	} else {
+		resolvedStatus = " ⚠️  UNRESOLVED"
+	}
+
+	fmt.Printf("[Thread %d] ID: %d%s\n", index, comment.ID, resolvedStatus)
+	fmt.Printf("👤 %s\n", comment.User.DisplayName)
+	fmt.Printf("📅 Created: %s\n", comment.CreatedOn)
 
 	// Check if it's an inline comment
 	if comment.Inline != nil {
@@ -94,4 +150,18 @@ func displayComment(comment *bitbucket.Comment, index int) {
 	fmt.Println()
 	fmt.Println(comment.Content.Raw)
 	fmt.Println()
+
+	// Display replies
+	if len(thread.Replies) > 0 {
+		fmt.Printf("  💬 %d replies:\n", len(thread.Replies))
+		for i, reply := range thread.Replies {
+			fmt.Printf("  [%d.%d] %s (ID: %d)\n", index, i+1, reply.User.DisplayName, reply.ID)
+			fmt.Printf("       📅 %s\n", reply.CreatedOn)
+			fmt.Printf("       %s\n", reply.Content.Raw)
+			if i < len(thread.Replies)-1 {
+				fmt.Println()
+			}
+		}
+		fmt.Println()
+	}
 }

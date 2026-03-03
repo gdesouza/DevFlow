@@ -20,4 +20,5 @@ func init() {
 	rootCmd.AddCommand(repoCmd)
 	rootCmd.AddCommand(pullrequestCmd)
 	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(jenkinsCmd)
 }

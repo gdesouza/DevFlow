@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -11,7 +12,8 @@ import (
 )
 
 var (
-	repoSlug string
+	repoSlug   string
+	jsonOutput bool
 )
 
 var listPRsCmd = &cobra.Command{
@@ -60,25 +62,63 @@ Behavior:
 			if err != nil {
 				log.Fatalf("Error fetching pull requests: %v", err)
 			}
-			printRepoPRs(cfg.Bitbucket.Workspace, slug, prs)
+
+			if jsonOutput {
+				printPRsJSON(cfg.Bitbucket.Workspace, slug, prs)
+			} else {
+				printRepoPRs(cfg.Bitbucket.Workspace, slug, prs)
+			}
 			return
 		}
 
 		// Aggregate across all watched repos
+		type RepoPRs struct {
+			Repository   string                  `json:"repository"`
+			PullRequests []bitbucket.PullRequest `json:"pull_requests"`
+		}
+
+		var allRepoPRs []RepoPRs
 		var total int
+
 		for w := range watched {
 			prs, err := client.GetPullRequests(w)
 			if err != nil {
-				fmt.Printf("Warning: failed to fetch '%s': %v\n", w, err)
+				if !jsonOutput {
+					fmt.Printf("Warning: failed to fetch '%s': %v\n", w, err)
+				}
 				continue
 			}
 			if len(prs) == 0 {
 				continue
 			}
-			printRepoPRs(cfg.Bitbucket.Workspace, w, prs)
+
+			if jsonOutput {
+				allRepoPRs = append(allRepoPRs, RepoPRs{
+					Repository:   w,
+					PullRequests: prs,
+				})
+			} else {
+				printRepoPRs(cfg.Bitbucket.Workspace, w, prs)
+			}
 			total += len(prs)
 		}
-		if total == 0 {
+
+		if jsonOutput {
+			output := struct {
+				Workspace string    `json:"workspace"`
+				Repos     []RepoPRs `json:"repositories"`
+				Total     int       `json:"total"`
+			}{
+				Workspace: cfg.Bitbucket.Workspace,
+				Repos:     allRepoPRs,
+				Total:     total,
+			}
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				log.Fatalf("Error marshaling JSON: %v", err)
+			}
+			fmt.Println(string(jsonBytes))
+		} else if total == 0 {
 			fmt.Println("No pull requests in watched repositories.")
 		}
 	},
@@ -86,6 +126,27 @@ Behavior:
 
 func init() {
 	listPRsCmd.Flags().StringVarP(&repoSlug, "repo", "r", "", "Repository slug (optional; defaults to all watched)")
+	listPRsCmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results in JSON format")
+}
+
+func printPRsJSON(workspace, slug string, prs []bitbucket.PullRequest) {
+	output := struct {
+		Workspace    string                  `json:"workspace"`
+		Repository   string                  `json:"repository"`
+		PullRequests []bitbucket.PullRequest `json:"pull_requests"`
+		Total        int                     `json:"total"`
+	}{
+		Workspace:    workspace,
+		Repository:   slug,
+		PullRequests: prs,
+		Total:        len(prs),
+	}
+
+	jsonBytes, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		log.Fatalf("Error marshaling JSON: %v", err)
+	}
+	fmt.Println(string(jsonBytes))
 }
 
 func printRepoPRs(workspace, slug string, prs []bitbucket.PullRequest) {

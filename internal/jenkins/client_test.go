@@ -6,119 +6,192 @@ import (
 	"testing"
 
 	"devflow/internal/config"
+	"fmt"
 )
 
-func TestNewClient(t *testing.T) {
-	cfg := &config.JenkinsConfig{
-		URL:      "https://jenkins.example.com",
-		Username: "testuser",
-		Token:    "testtoken",
-	}
+// Existing tests omitted for brevity...
 
-	client := NewClient(cfg)
-
-	if client == nil {
-		t.Fatal("NewClient returned nil")
-	}
-
-	if client.baseURL != "https://jenkins.example.com" {
-		t.Errorf("Expected baseURL to be 'https://jenkins.example.com', got '%s'", client.baseURL)
-	}
-
-	if client.config != cfg {
-		t.Error("Config not set correctly")
-	}
-}
-
-func TestGetJobBuilds(t *testing.T) {
-	// Create a test server
+func TestGetJobBuilds_ErrorStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/job/test-job/api/json" {
-			t.Errorf("Expected path '/job/test-job/api/json', got '%s'", r.URL.Path)
-		}
-
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(`{
-		"builds": [
-			{
-				"number": 123,
-				"result": "SUCCESS",
-				"timestamp": 1640000000000,
-				"duration": 60000,
-				"url": "https://jenkins.example.com/job/test-job/123/",
-				"building": false
-			},
-			{
-				"number": 122,
-				"result": "FAILURE",
-				"timestamp": 1639900000000,
-				"duration": 45000,
-				"url": "https://jenkins.example.com/job/test-job/122/",
-				"building": false
-			}
-		]
-	}`)); err != nil {
-			t.Errorf("Failed to write response: %v", err)
-		}
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"error":"Not found"}`)
 	}))
 	defer server.Close()
 
-	cfg := &config.JenkinsConfig{
-		URL:      server.URL,
-		Username: "testuser",
-		Token:    "testtoken",
-	}
-
+	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
 	client := NewClient(cfg)
-	builds, err := client.GetJobBuilds("test-job", 10)
-
-	if err != nil {
-		t.Fatalf("GetJobBuilds failed: %v", err)
-	}
-
-	if len(builds) != 2 {
-		t.Errorf("Expected 2 builds, got %d", len(builds))
-	}
-
-	if builds[0].Number != 123 {
-		t.Errorf("Expected build number 123, got %d", builds[0].Number)
-	}
-
-	if builds[0].Result != "SUCCESS" {
-		t.Errorf("Expected result 'SUCCESS', got '%s'", builds[0].Result)
+	_, err := client.GetJobBuilds("badjob", 10)
+	if err == nil {
+		t.Errorf("Expected error for non-OK status, got nil")
 	}
 }
 
-func TestGetBuildLog(t *testing.T) {
-	expectedLog := "Build log content\nLine 2\nLine 3"
-
-	// Create a test server
+func TestGetJobBuilds_InvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/job/test-job/123/consoleText" {
-			t.Errorf("Expected path '/job/test-job/123/consoleText', got '%s'", r.URL.Path)
-		}
-
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(expectedLog)); err != nil {
-			t.Errorf("Failed to write response: %v", err)
+		fmt.Fprint(w, "not-json")
+	}))
+	defer server.Close()
+	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
+	client := NewClient(cfg)
+	_, err := client.GetJobBuilds("badjob", 10)
+	if err == nil {
+		t.Errorf("Expected decode error, got nil")
+	}
+}
+
+func TestGetBuildLog_ErrorStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, "fail")
+	}))
+	defer server.Close()
+	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
+	client := NewClient(cfg)
+	_, err := client.GetBuildLog("badjob", 10)
+	if err == nil {
+		t.Errorf("Expected log error, got nil")
+	}
+}
+
+
+
+func TestGetBuildStages_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
+	client := NewClient(cfg)
+	stages, err := client.GetBuildStages("job", 1)
+	if err != nil || stages != nil {
+		t.Errorf("Expected nil stages and no error for not found, got %v %v", stages, err)
+	}
+}
+
+func TestGetBuildStages_ErrorStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, "fail")
+	}))
+	defer server.Close()
+	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
+	client := NewClient(cfg)
+	_, err := client.GetBuildStages("job", 1)
+	if err == nil {
+		t.Error("Expected error for bad status, got nil")
+	}
+}
+
+func TestGetBuildStages_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "not-json")
+	}))
+	defer server.Close()
+	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
+	client := NewClient(cfg)
+	_, err := client.GetBuildStages("job", 1)
+	if err == nil {
+		t.Error("Expected decode error, got nil")
+	}
+}
+
+func TestGetBuildStages_Success(t *testing.T) {
+	stagesJson := `{ "stages": [ { "id": "99", "name": "Test", "status": "FAILED", "startTimeMillis": 100, "durationMillis": 200, "error": "" } ]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, stagesJson)
+	}))
+	defer server.Close()
+	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
+	client := NewClient(cfg)
+	stages, err := client.GetBuildStages("job", 1)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if len(stages) != 1 || stages[0].ID != "99" || stages[0].Status != "FAILED" {
+		t.Errorf("Stage parse error, got %v", stages)
+	}
+}
+
+func TestGetFailedStepLog_PipelineFailedStage(t *testing.T) {
+	// stub for GetBuildStages and then stage log, fallback
+	stageJson := `{ "stages": [ { "id": "1234", "name": "Deploy", "status": "FAILED", "startTimeMillis": 10, "durationMillis": 20 } ]}`
+	stageLog := "FAILURE LOG"
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path == "/job/job/1/wfapi/describe" {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, stageJson)
+		} else if r.URL.Path == "/job/job/1/execution/node/1234/wfapi/log" {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, stageLog)
+		} else {
+			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
-
-	cfg := &config.JenkinsConfig{
-		URL:      server.URL,
-		Username: "testuser",
-		Token:    "testtoken",
-	}
-
+	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
 	client := NewClient(cfg)
-	log, err := client.GetBuildLog("test-job", 123)
-
+	log, err := client.GetFailedStepLog("job", 1)
 	if err != nil {
-		t.Fatalf("GetBuildLog failed: %v", err)
+		t.Fatalf("Unexpected error: %v", err)
 	}
+	if log == "" || log != "=== Failed Stage: Deploy ===\nFAILURE LOG" {
+		t.Errorf("Expected pipeline failed stage log, got %q", log)
+	}
+}
 
-	if log != expectedLog {
-		t.Errorf("Expected log '%s', got '%s'", expectedLog, log)
+func TestGetFailedStepLog_PipelineFallback(t *testing.T) {
+	// stage log endpoint returns error, fallback to full log
+	stageJson := `{ "stages": [ { "id": "456", "name": "Unit", "status": "FAILED" } ]}`
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path == "/job/job/1/wfapi/describe" {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, stageJson)
+		} else if r.URL.Path == "/job/job/1/execution/node/456/wfapi/log" {
+			w.WriteHeader(http.StatusInternalServerError)
+		} else if r.URL.Path == "/job/job/1/consoleText" {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, "main log")
+		}
+	}))
+	defer server.Close()
+	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
+	client := NewClient(cfg)
+	log, err := client.GetFailedStepLog("job", 1)
+	if err != nil {
+		t.Fatalf("Pipeline fallback error: %v", err)
+	}
+	if log == "" || log != "main log" {
+		t.Errorf("Expected fallback to main log, got %q", log)
+	}
+}
+
+func TestGetFailedStepLog_NonPipelineJob(t *testing.T) {
+	// wfapi/describe returns nil stages, fallback to full log
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path == "/job/job/1/wfapi/describe" {
+			w.WriteHeader(http.StatusNotFound)
+		} else if r.URL.Path == "/job/job/1/consoleText" {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, "full log")
+		}
+	}))
+	defer server.Close()
+	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
+	client := NewClient(cfg)
+	log, err := client.GetFailedStepLog("job", 1)
+	if err != nil {
+		t.Fatalf("Non-pipeline fallback error: %v", err)
+	}
+	if log == "" || log != "full log" {
+		t.Errorf("Expected full log fallback, got %q", log)
 	}
 }

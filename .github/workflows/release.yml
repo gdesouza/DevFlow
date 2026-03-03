@@ -99,7 +99,7 @@ jobs:
           # Upload to multiple Ubuntu/Debian distributions
           for distro in ubuntu/focal ubuntu/jammy ubuntu/noble debian/bullseye debian/bookworm; do
             echo "Uploading to $distro..."
-            package_cloud push gdesouza/devflow/${distro} devflow_${VERSION}_amd64.deb || echo "Failed to upload to $distro"
+            package_cloud push gus-desouza/devtools/${distro} devflow_${VERSION}_amd64.deb || echo "Failed to upload to $distro"
           done
 
       - name: Create GitHub Release
@@ -121,7 +121,7 @@ jobs:
             #### From PackageCloud
             ```bash
             # Add repository
-            curl -s https://packagecloud.io/install/repositories/gdesouza/devflow/script.deb.sh | sudo bash
+            curl -s https://packagecloud.io/install/repositories/gus-desouza/devtools/script.deb.sh | sudo bash
             
             # Install package
             sudo apt-get install devflow

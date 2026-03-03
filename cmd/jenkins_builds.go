@@ -90,7 +90,7 @@ func formatBuildStatus(result string, building bool) string {
 }
 
 func formatTimestamp(timestamp int64) string {
-	t := time.Unix(timestamp/1000, 0)
+	t := time.Unix(timestamp/1000, 0).UTC()
 	return t.Format("2006-01-02 15:04:05")
 }
 

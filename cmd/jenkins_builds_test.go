@@ -29,9 +29,9 @@ func TestFormatBuildStatus(t *testing.T) {
 }
 
 func TestFormatTimestamp(t *testing.T) {
-	// 1640000000000 ms after epoch = 2021-12-20 09:13:20 UTC
+	// 1640000000000 ms = 1640000000 unix seconds = 2021-12-20 11:33:20 UTC
 	ts := int64(1640000000000)
-	expect := "2021-12-20 06:33:20"
+	expect := "2021-12-20 11:33:20"
 	got := formatTimestamp(ts)
 	if got != expect {
 		t.Errorf("formatTimestamp(%v) = %q; want %q", ts, got, expect)

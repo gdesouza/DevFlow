@@ -67,19 +67,80 @@ Update any scripts referencing old commands accordingly (e.g. `devflow jira list
 
 ### 1. Installation
 
+#### Option A: Package Manager (Recommended for Debian/Ubuntu)
+
+```bash
+# Add the DevFlow repository (one-time setup)
+curl -s https://packagecloud.io/install/repositories/gdesouza/devflow/script.deb.sh | sudo bash
+
+# Install DevFlow
+sudo apt-get install devflow
+
+# Update to latest version
+sudo apt-get update && sudo apt-get upgrade devflow
+```
+
+Supported distributions: Ubuntu 20.04+, Debian 11+
+
+#### Option B: Download Debian Package
+
+```bash
+# Download the latest .deb package
+wget https://github.com/gdesouza/DevFlow/releases/latest/download/devflow_<version>_amd64.deb
+
+# Install the package
+sudo dpkg -i devflow_<version>_amd64.deb
+```
+
+#### Option C: Pre-built Binary
+
+Download the appropriate binary for your platform from the [Releases page](https://github.com/gdesouza/DevFlow/releases):
+
+```bash
+# Linux (Intel/AMD)
+wget https://github.com/gdesouza/DevFlow/releases/latest/download/devflow-linux-amd64
+chmod +x devflow-linux-amd64
+sudo mv devflow-linux-amd64 /usr/local/bin/devflow
+
+# macOS (Intel)
+wget https://github.com/gdesouza/DevFlow/releases/latest/download/devflow-darwin-amd64
+chmod +x devflow-darwin-amd64
+sudo mv devflow-darwin-amd64 /usr/local/bin/devflow
+
+# macOS (Apple Silicon)
+wget https://github.com/gdesouza/DevFlow/releases/latest/download/devflow-darwin-arm64
+chmod +x devflow-darwin-arm64
+sudo mv devflow-darwin-arm64 /usr/local/bin/devflow
+```
+
+#### Option D: Install from Source
+
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd devflow
+git clone https://github.com/gdesouza/DevFlow.git
+cd DevFlow
 
-# Install to your Go bin directory (recommended)
+# Install to your Go bin directory
 make install
 
 # Ensure ~/go/bin is in your PATH (add to ~/.bashrc if needed)
 export PATH="$HOME/go/bin:$PATH"
+
+# Or install specific version with Go
+go install github.com/gdesouza/DevFlow@v1.0.0
 ```
 
-**Note:** Version is injected at build time. The source file `cmd/version.go` intentionally sets `var version = "dev"`; release builds override this via `-ldflags "-X 'devflow/cmd.version=vX.Y.Z'"` (see Makefile). `make install` installs the binary to `~/go/bin/devflow` embedding the latest git tag release version. For development builds (`make build`) the CLI will report `dev`. To install a specific tagged release: `make install VERSION=v1.3.3`. Avoid manually editing `version.go` for releases.
+#### Verify Installation
+
+```bash
+# Check version
+devflow version
+
+# Show help
+devflow --help
+```
+
+**Note for Developers:** Version is injected at build time. The source file `cmd/version.go` intentionally sets `var version = "dev"`; release builds override this via `-ldflags "-X 'devflow/cmd.version=vX.Y.Z'"`. Development builds (`make build`) will report `dev`. See [RELEASE.md](RELEASE.md) for release process details.
 
 ### 2. Configuration
 

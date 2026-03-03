@@ -15,9 +15,13 @@ func captureStdout(f func()) string {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	f()
-	w.Close()
+	if err := w.Close(); err != nil {
+		panic(err)
+	}
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	if _, err := buf.ReadFrom(r); err != nil {
+		panic(err)
+	}
 	os.Stdout = old
 	return buf.String()
 }
@@ -55,7 +59,9 @@ func TestPrintPRsJSON_One(t *testing.T) {
 	var obj struct {
 		Total int `json:"total"`
 	}
-	json.Unmarshal([]byte(out), &obj)
+	if err := json.Unmarshal([]byte(out), &obj); err != nil {
+		t.Errorf("unmarshal failed: %v (output was: %q)", err, out)
+	}
 	if obj.Total != 1 {
 		t.Errorf("expected total=1 got %d (%q)", obj.Total, out)
 	}

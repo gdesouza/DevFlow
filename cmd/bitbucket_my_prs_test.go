@@ -97,10 +97,6 @@ func TestFilterPRsForUser(t *testing.T) {
 }
 
 // Minimal smoke test for displayPRsToReview JSON output
-type fakePRWithRepo struct {
-	PR       bitbucket.PullRequestWithReviewers
-	RepoSlug string
-}
 
 func TestDisplayPRsToReview_EmptyText(t *testing.T) {
 	var prs []PRWithRepo
@@ -109,9 +105,13 @@ func TestDisplayPRsToReview_EmptyText(t *testing.T) {
 	os.Stdout = w
 	defer func() { os.Stdout = oldStdout }()
 	displayPRsToReview(prs, "mySrc", false, false, "myworkspace")
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close pipe: %v", err)
+	}
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatalf("failed to read pipe: %v", err)
+	}
 	if !strings.Contains(buf.String(), "No pull requests found") {
 		t.Errorf("expected message for empty PR list, got: %q", buf.String())
 	}
@@ -127,9 +127,13 @@ func TestDisplayPRsToReview_TextMultiple(t *testing.T) {
 	os.Stdout = w
 	defer func() { os.Stdout = oldStdout }()
 	displayPRsToReview(prs, "src", true, false, "myworkspace")
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close pipe: %v", err)
+	}
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatalf("failed to read pipe: %v", err)
+	}
 	out := buf.String()
 	for _, pr := range prs {
 		if !strings.Contains(out, pr.PR.Title) {
@@ -153,9 +157,13 @@ func TestDisplayPRsToReview_JSON(t *testing.T) {
 	os.Stdout = w
 	defer func() { os.Stdout = oldStdout }()
 	displayPRsToReview(prs, "src", true, true, "myworkspace")
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close pipe: %v", err)
+	}
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatalf("failed to read pipe: %v", err)
+	}
 	var out struct {
 		Workspace    string       `json:"workspace"`
 		Source       string       `json:"source"`

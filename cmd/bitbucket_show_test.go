@@ -56,7 +56,9 @@ func TestDisplayPRDetails(t *testing.T) {
 
 	displayPRDetails(pr, "my-workspace", "my-repo")
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close pipe: %v", err)
+	}
 	out, _ := io.ReadAll(r)
 	os.Stdout = oldStdout
 
@@ -118,7 +120,9 @@ func TestDisplayPRDetails_NoDescription(t *testing.T) {
 
 	displayPRDetails(pr, "ws", "repo")
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close pipe: %v", err)
+	}
 	out, _ := io.ReadAll(r)
 	os.Stdout = oldStdout
 
@@ -147,7 +151,9 @@ func TestDisplayPRDetails_NoReviewers(t *testing.T) {
 
 	displayPRDetails(pr, "ws", "repo")
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close pipe: %v", err)
+	}
 	out, _ := io.ReadAll(r)
 	os.Stdout = oldStdout
 
@@ -177,7 +183,9 @@ func TestDisplayPRDetails_NoDates(t *testing.T) {
 
 	displayPRDetails(pr, "ws", "repo")
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close pipe: %v", err)
+	}
 	out, _ := io.ReadAll(r)
 	os.Stdout = oldStdout
 
@@ -211,7 +219,9 @@ func TestDisplayPRDetails_AllStates(t *testing.T) {
 
 		displayPRDetails(pr, "ws", "repo")
 
-		w.Close()
+		if err := w.Close(); err != nil {
+			t.Fatalf("failed to close pipe: %v", err)
+		}
 		out, _ := io.ReadAll(r)
 		os.Stdout = oldStdout
 
@@ -234,7 +244,9 @@ func TestPrintRepoPRs(t *testing.T) {
 
 	printRepoPRs("workspace", "my-repo", prs)
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close pipe: %v", err)
+	}
 	out, _ := io.ReadAll(r)
 	os.Stdout = oldStdout
 
@@ -261,7 +273,9 @@ func TestPrintRepoPRs_Empty(t *testing.T) {
 
 	printRepoPRs("workspace", "my-repo", []bitbucket.PullRequest{})
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close pipe: %v", err)
+	}
 	out, _ := io.ReadAll(r)
 	os.Stdout = oldStdout
 

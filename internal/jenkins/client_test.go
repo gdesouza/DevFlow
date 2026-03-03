@@ -14,7 +14,9 @@ import (
 func TestGetJobBuilds_ErrorStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, `{"error":"Not found"}`)
+		if _, err := fmt.Fprint(w, `{"error":"Not found"}`); err != nil {
+			t.Fatalf("write failed: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -29,7 +31,9 @@ func TestGetJobBuilds_ErrorStatus(t *testing.T) {
 func TestGetJobBuilds_InvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "not-json")
+		if _, err := fmt.Fprint(w, "not-json"); err != nil {
+			t.Fatalf("write failed: %v", err)
+		}
 	}))
 	defer server.Close()
 	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
@@ -43,7 +47,9 @@ func TestGetJobBuilds_InvalidJSON(t *testing.T) {
 func TestGetBuildLog_ErrorStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, "fail")
+		if _, err := fmt.Fprint(w, "fail"); err != nil {
+			t.Fatalf("write failed: %v", err)
+		}
 	}))
 	defer server.Close()
 	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
@@ -53,8 +59,6 @@ func TestGetBuildLog_ErrorStatus(t *testing.T) {
 		t.Errorf("Expected log error, got nil")
 	}
 }
-
-
 
 func TestGetBuildStages_NotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +76,9 @@ func TestGetBuildStages_NotFound(t *testing.T) {
 func TestGetBuildStages_ErrorStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, "fail")
+		if _, err := fmt.Fprint(w, "fail"); err != nil {
+			t.Fatalf("write failed: %v", err)
+		}
 	}))
 	defer server.Close()
 	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
@@ -86,7 +92,9 @@ func TestGetBuildStages_ErrorStatus(t *testing.T) {
 func TestGetBuildStages_InvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "not-json")
+		if _, err := fmt.Fprint(w, "not-json"); err != nil {
+			t.Fatalf("write failed: %v", err)
+		}
 	}))
 	defer server.Close()
 	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
@@ -101,7 +109,9 @@ func TestGetBuildStages_Success(t *testing.T) {
 	stagesJson := `{ "stages": [ { "id": "99", "name": "Test", "status": "FAILED", "startTimeMillis": 100, "durationMillis": 200, "error": "" } ]}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, stagesJson)
+		if _, err := fmt.Fprint(w, stagesJson); err != nil {
+			t.Fatalf("write failed: %v", err)
+		}
 	}))
 	defer server.Close()
 	cfg := &config.JenkinsConfig{URL: server.URL, Username: "u", Token: "t"}
@@ -124,10 +134,14 @@ func TestGetFailedStepLog_PipelineFailedStage(t *testing.T) {
 		calls++
 		if r.URL.Path == "/job/job/1/wfapi/describe" {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, stageJson)
+			if _, err := fmt.Fprint(w, stageJson); err != nil {
+				t.Fatalf("write failed: %v", err)
+			}
 		} else if r.URL.Path == "/job/job/1/execution/node/1234/wfapi/log" {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, stageLog)
+			if _, err := fmt.Fprint(w, stageLog); err != nil {
+				t.Fatalf("write failed: %v", err)
+			}
 		} else {
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -152,12 +166,16 @@ func TestGetFailedStepLog_PipelineFallback(t *testing.T) {
 		calls++
 		if r.URL.Path == "/job/job/1/wfapi/describe" {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, stageJson)
+			if _, err := fmt.Fprint(w, stageJson); err != nil {
+				t.Fatalf("write failed: %v", err)
+			}
 		} else if r.URL.Path == "/job/job/1/execution/node/456/wfapi/log" {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else if r.URL.Path == "/job/job/1/consoleText" {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, "main log")
+			if _, err := fmt.Fprint(w, "main log"); err != nil {
+				t.Fatalf("write failed: %v", err)
+			}
 		}
 	}))
 	defer server.Close()
@@ -181,7 +199,9 @@ func TestGetFailedStepLog_NonPipelineJob(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 		} else if r.URL.Path == "/job/job/1/consoleText" {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, "full log")
+			if _, err := fmt.Fprint(w, "full log"); err != nil {
+				t.Fatalf("write failed: %v", err)
+			}
 		}
 	}))
 	defer server.Close()

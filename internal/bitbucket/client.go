@@ -201,7 +201,9 @@ func (c *Client) makeRequestWithRetry(method, endpoint string, body interface{},
 
 		// Handle rate limiting
 		if resp.StatusCode == 429 {
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			if attempt < maxRetries-1 {
 				// Exponential backoff: wait longer between retries
 				waitTime := time.Duration(attempt+1) * 2 * time.Second
@@ -233,7 +235,11 @@ func (c *Client) TestAuth() error {
 		if err != nil {
 			continue
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
 
 		if resp.StatusCode == http.StatusOK {
 			return nil
@@ -261,7 +267,13 @@ func (c *Client) TestBasicAuth() error {
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 
 	if resp.StatusCode == http.StatusOK {
 		return nil
@@ -283,20 +295,28 @@ func (c *Client) GetPullRequests(repoSlug string) ([]PullRequest, error) {
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 		}
 
 		var prResp PullRequestsResponse
 		if err := json.NewDecoder(resp.Body).Decode(&prResp); err != nil {
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
 		allPRs = append(allPRs, prResp.Values...)
 
 		// We're done with this response; close the body before the next iteration.
-		resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
 
 		// Handle pagination
 		if prResp.Next != "" {
@@ -324,20 +344,28 @@ func (c *Client) GetParticipatingPullRequests(repoSlug, username string) ([]Pull
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 		}
 
 		var prResp PullRequestsResponse
 		if err := json.NewDecoder(resp.Body).Decode(&prResp); err != nil {
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
 		allPRs = append(allPRs, prResp.Values...)
 
 		// We're done with this response; close the body before the next iteration.
-		resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
 
 		// Handle pagination
 		if prResp.Next != "" {
@@ -462,7 +490,13 @@ func (c *Client) GetWorkspacePullRequestsForUser(username string) ([]PullRequest
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -485,7 +519,13 @@ func (c *Client) GetPullRequestDetails(repoSlug string, prID int) (*PullRequestD
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -508,7 +548,13 @@ func (c *Client) GetPullRequestDiff(repoSlug string, prID int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -536,16 +582,24 @@ func (c *Client) GetRepositories() ([]Repository, error) {
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 		}
 
 		var repoResp RepositoriesResponse
 		if err := json.NewDecoder(resp.Body).Decode(&repoResp); err != nil {
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
-		resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
 
 		// Add repositories from this page
 		allRepos = append(allRepos, repoResp.Values...)
@@ -597,7 +651,13 @@ func (c *Client) GetRepositoriesPaged(page, size int) ([]Repository, int, error)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -620,7 +680,13 @@ func (c *Client) getFirstPageWithTotal(size int) ([]Repository, int, error) {
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -652,7 +718,13 @@ func (c *Client) getTotalRepositoryCount(size int) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("failed to get repository count")
@@ -679,7 +751,13 @@ func (c *Client) GetRepository(repoSlug string) (*Repository, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
@@ -734,7 +812,13 @@ func (c *Client) CreatePullRequest(repoSlug, title, description, sourceBranch, d
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 
 	if resp.StatusCode != http.StatusCreated {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -764,10 +848,16 @@ func (c *Client) GetRepositoryReadme(repoSlug string) (string, string, error) {
 		}
 		if resp.StatusCode == http.StatusOK {
 			data, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			return name, string(data), nil
 		}
-		resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
 	}
 	return "", "", fmt.Errorf("no README found in repository %s", repoSlug)
 }
@@ -819,20 +909,28 @@ func (c *Client) GetPullRequestCommits(repoSlug string, prID int) ([]Commit, err
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 		}
 
 		var commitsResp CommitsResponse
 		if err := json.NewDecoder(resp.Body).Decode(&commitsResp); err != nil {
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
 		allCommits = append(allCommits, commitsResp.Values...)
 
 		// We're done with this response; close the body before the next iteration.
-		resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
 
 		// Handle pagination
 		if commitsResp.Next != "" {
@@ -858,20 +956,28 @@ func (c *Client) GetCommitStatuses(repoSlug, commitHash string) ([]CommitStatus,
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
 		}
 
 		var statusesResp CommitStatusesResponse
 		if err := json.NewDecoder(resp.Body).Decode(&statusesResp); err != nil {
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
 		allStatuses = append(allStatuses, statusesResp.Values...)
 
 		// We're done with this response; close the body before the next iteration.
-		resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
 
 		// Handle pagination
 		if statusesResp.Next != "" {
@@ -899,7 +1005,13 @@ func (c *Client) SetCommitStatus(repoSlug, commitHash, state, key, name, urlStr,
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
@@ -950,7 +1062,11 @@ func (c *Client) GetPullRequestComments(repoSlug string, prID int) ([]Comment, e
 		if err != nil {
 			return nil, fmt.Errorf("failed to make request: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -990,7 +1106,13 @@ func (c *Client) CreatePullRequestComment(repoSlug string, prID int, content str
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -1022,7 +1144,13 @@ func (c *Client) ReplyToPullRequestComment(repoSlug string, prID int, parentComm
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Printf("warning: failed to close response body: %v\n", err)
+			}
+		}()
+	}()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

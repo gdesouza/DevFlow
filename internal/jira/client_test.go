@@ -58,7 +58,11 @@ func TestMakeRequest_SetsAuthAndHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("makeRequest failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("failed to close response body: %v", err)
+		}
+	}()
 }
 
 func TestGetMyIssues_Success(t *testing.T) {

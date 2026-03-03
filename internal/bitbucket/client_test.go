@@ -65,7 +65,11 @@ func TestMakeRequestWithRetry_SucceedsAfterRetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("failed to close response body: %v", err)
+		}
+	}()
 	b, _ := io.ReadAll(resp.Body)
 	if string(b) != "ok" {
 		t.Fatalf("expected body 'ok', got %q", string(b))

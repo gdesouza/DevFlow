@@ -11,28 +11,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var addCommentCmd = &cobra.Command{
-	Use:     "add-comment [repo-slug] [pr-id] [comment]",
-	Aliases: []string{"comment-add", "create-comment"},
-	Short:   "Add a comment to a pull request",
-	Long:    `Create a new comment on a specific pull request.`,
-	Args:    cobra.MinimumNArgs(3),
+var commentReplyCmd = &cobra.Command{
+	Use:     "comment-reply [repo-slug] [pr-id] [thread-id] [message]",
+	Aliases: []string{"reply"},
+	Short:   "Reply to a comment thread on a pull request",
+	Long:    `Reply to a specific comment thread (inline or top-level) on a pull request. Avoids adding top-level noise.`,
+	Args:    cobra.ExactArgs(4),
 	Run: func(cmd *cobra.Command, args []string) {
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 		repoSlug := args[0]
 		prIDStr := args[1]
-		// Join all remaining args as the comment content (in case it has spaces)
-		content := ""
-		for i := 2; i < len(args); i++ {
-			if i > 2 {
-				content += " "
-			}
-			content += args[i]
-		}
+		threadIDStr := args[2]
+		message := args[3]
 
 		prID, err := strconv.Atoi(prIDStr)
 		if err != nil {
 			log.Fatalf("Invalid pull request ID: %s", prIDStr)
+		}
+
+		threadID, err := strconv.Atoi(threadIDStr)
+		if err != nil {
+			log.Fatalf("Invalid thread ID: %s", threadIDStr)
 		}
 
 		// Load configuration
@@ -55,10 +54,10 @@ var addCommentCmd = &cobra.Command{
 		// Create Bitbucket client
 		client := bitbucket.NewClient(&cfg.Bitbucket)
 
-		// Create comment
-		comment, err := client.CreatePullRequestComment(repoSlug, prID, content)
+		// Reply to comment
+		comment, err := client.ReplyToPullRequestComment(repoSlug, prID, threadID, message)
 		if err != nil {
-			log.Fatalf("Error creating pull request comment: %v", err)
+			log.Fatalf("Error replying to comment: %v", err)
 		}
 
 		if jsonOutput {
@@ -66,11 +65,13 @@ var addCommentCmd = &cobra.Command{
 				Workspace     string             `json:"workspace"`
 				Repository    string             `json:"repository"`
 				PullRequestID int                `json:"pull_request_id"`
+				ThreadID      int                `json:"thread_id"`
 				Comment       *bitbucket.Comment `json:"comment"`
 			}{
 				Workspace:     cfg.Bitbucket.Workspace,
 				Repository:    repoSlug,
 				PullRequestID: prID,
+				ThreadID:      threadID,
 				Comment:       comment,
 			}
 
@@ -82,16 +83,12 @@ var addCommentCmd = &cobra.Command{
 			return
 		}
 
-		// Display success message
-		fmt.Printf("✅ Comment added successfully to PR #%d\n", prID)
-		fmt.Printf("💬 Comment ID: %d\n", comment.ID)
-		fmt.Printf("📅 Created: %s\n", comment.CreatedOn)
-		fmt.Println()
-		fmt.Println("Comment content:")
-		fmt.Println(comment.Content.Raw)
+		fmt.Printf("✅ Successfully replied to thread #%d\n", threadID)
+		fmt.Printf("Comment ID: %d\n", comment.ID)
+		fmt.Printf("Created: %s\n", comment.CreatedOn)
 	},
 }
 
 func init() {
-	addCommentCmd.Flags().Bool("json", false, "Output in JSON format")
+	commentReplyCmd.Flags().Bool("json", false, "Output in JSON format")
 }

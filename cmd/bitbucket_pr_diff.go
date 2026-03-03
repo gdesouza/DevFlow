@@ -11,24 +11,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var addCommentCmd = &cobra.Command{
-	Use:     "add-comment [repo-slug] [pr-id] [comment]",
-	Aliases: []string{"comment-add", "create-comment"},
-	Short:   "Add a comment to a pull request",
-	Long:    `Create a new comment on a specific pull request.`,
-	Args:    cobra.MinimumNArgs(3),
+var prDiffCmd = &cobra.Command{
+	Use:     "diff [repo-slug] [pr-id]",
+	Aliases: []string{"unified-diff"},
+	Short:   "Display unified diff for a pull request",
+	Long:    `Retrieve and display the unified diff for a specific pull request. Optimized for AI consumption.`,
+	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 		repoSlug := args[0]
 		prIDStr := args[1]
-		// Join all remaining args as the comment content (in case it has spaces)
-		content := ""
-		for i := 2; i < len(args); i++ {
-			if i > 2 {
-				content += " "
-			}
-			content += args[i]
-		}
 
 		prID, err := strconv.Atoi(prIDStr)
 		if err != nil {
@@ -55,23 +47,23 @@ var addCommentCmd = &cobra.Command{
 		// Create Bitbucket client
 		client := bitbucket.NewClient(&cfg.Bitbucket)
 
-		// Create comment
-		comment, err := client.CreatePullRequestComment(repoSlug, prID, content)
+		// Get diff
+		diff, err := client.GetPullRequestDiff(repoSlug, prID)
 		if err != nil {
-			log.Fatalf("Error creating pull request comment: %v", err)
+			log.Fatalf("Error fetching pull request diff: %v", err)
 		}
 
 		if jsonOutput {
 			output := struct {
-				Workspace     string             `json:"workspace"`
-				Repository    string             `json:"repository"`
-				PullRequestID int                `json:"pull_request_id"`
-				Comment       *bitbucket.Comment `json:"comment"`
+				Workspace     string `json:"workspace"`
+				Repository    string `json:"repository"`
+				PullRequestID int    `json:"pull_request_id"`
+				Diff          string `json:"diff"`
 			}{
 				Workspace:     cfg.Bitbucket.Workspace,
 				Repository:    repoSlug,
 				PullRequestID: prID,
-				Comment:       comment,
+				Diff:          diff,
 			}
 
 			jsonBytes, err := json.MarshalIndent(output, "", "  ")
@@ -82,16 +74,11 @@ var addCommentCmd = &cobra.Command{
 			return
 		}
 
-		// Display success message
-		fmt.Printf("✅ Comment added successfully to PR #%d\n", prID)
-		fmt.Printf("💬 Comment ID: %d\n", comment.ID)
-		fmt.Printf("📅 Created: %s\n", comment.CreatedOn)
-		fmt.Println()
-		fmt.Println("Comment content:")
-		fmt.Println(comment.Content.Raw)
+		// Output the diff directly
+		fmt.Print(diff)
 	},
 }
 
 func init() {
-	addCommentCmd.Flags().Bool("json", false, "Output in JSON format")
+	prDiffCmd.Flags().Bool("json", false, "Output in JSON format")
 }

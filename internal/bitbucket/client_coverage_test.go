@@ -35,7 +35,11 @@ func TestMakeRequest_WithBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("failed to close response body: %v", err)
+	}
+}()
 
 	if receivedBody["key"] != "value" {
 		t.Fatalf("expected body key=value, got %v", receivedBody)
@@ -64,7 +68,11 @@ func TestMakeRequest_BasicAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("failed to close response body: %v", err)
+	}
+}()
 
 	// Basic auth header starts with "Basic "
 	if !strings.HasPrefix(authHeader, "Basic ") {
@@ -94,7 +102,11 @@ func TestMakeRequest_BearerAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("failed to close response body: %v", err)
+	}
+}()
 
 	if authHeader != "Bearer mytoken" {
 		t.Fatalf("expected Bearer auth header, got %s", authHeader)
@@ -123,7 +135,11 @@ func TestMakeRequest_HTTPError_4xx(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("failed to close response body: %v", err)
+	}
+}()
 
 	// Should not retry on 4xx (except 429)
 	if callCount != 1 {

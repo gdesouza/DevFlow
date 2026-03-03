@@ -25,6 +25,14 @@ A powerful command-line interface tool for streamlining development workflows wi
 - 🔐 **API Token Authentication** - Secure authentication with Bitbucket API tokens
 - 📊 **Repository Management** - Manage your Bitbucket repositories
 - 🔗 **Direct Links** - Clickable URLs to open pull requests in your browser
+- 📄 **PR Diff** - View unified diffs for pull requests
+- 💬 **PR Comments** - List and manage comment threads with resolution status
+- 💭 **Comment Reply** - Reply inline to specific comment threads
+- 🔨 **Build Status** - View and set commit build statuses
+
+### Jenkins Integration 🔧
+- 🔨 **List Builds** - View recent builds with status and build numbers
+- 📋 **Build Logs** - Fetch console output, optionally scoped to failing stages
 
 #### Repository Commands Summary
 `devflow repo` provides:
@@ -59,19 +67,80 @@ Update any scripts referencing old commands accordingly (e.g. `devflow jira list
 
 ### 1. Installation
 
+#### Option A: Package Manager (Recommended for Debian/Ubuntu)
+
+```bash
+# Add the DevFlow repository (one-time setup)
+curl -s https://packagecloud.io/install/repositories/gdesouza/devflow/script.deb.sh | sudo bash
+
+# Install DevFlow
+sudo apt-get install devflow
+
+# Update to latest version
+sudo apt-get update && sudo apt-get upgrade devflow
+```
+
+Supported distributions: Ubuntu 20.04+, Debian 11+
+
+#### Option B: Download Debian Package
+
+```bash
+# Download the latest .deb package
+wget https://github.com/gdesouza/DevFlow/releases/latest/download/devflow_<version>_amd64.deb
+
+# Install the package
+sudo dpkg -i devflow_<version>_amd64.deb
+```
+
+#### Option C: Pre-built Binary
+
+Download the appropriate binary for your platform from the [Releases page](https://github.com/gdesouza/DevFlow/releases):
+
+```bash
+# Linux (Intel/AMD)
+wget https://github.com/gdesouza/DevFlow/releases/latest/download/devflow-linux-amd64
+chmod +x devflow-linux-amd64
+sudo mv devflow-linux-amd64 /usr/local/bin/devflow
+
+# macOS (Intel)
+wget https://github.com/gdesouza/DevFlow/releases/latest/download/devflow-darwin-amd64
+chmod +x devflow-darwin-amd64
+sudo mv devflow-darwin-amd64 /usr/local/bin/devflow
+
+# macOS (Apple Silicon)
+wget https://github.com/gdesouza/DevFlow/releases/latest/download/devflow-darwin-arm64
+chmod +x devflow-darwin-arm64
+sudo mv devflow-darwin-arm64 /usr/local/bin/devflow
+```
+
+#### Option D: Install from Source
+
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd devflow
+git clone https://github.com/gdesouza/DevFlow.git
+cd DevFlow
 
-# Install to your Go bin directory (recommended)
+# Install to your Go bin directory
 make install
 
 # Ensure ~/go/bin is in your PATH (add to ~/.bashrc if needed)
 export PATH="$HOME/go/bin:$PATH"
+
+# Or install specific version with Go
+go install github.com/gdesouza/DevFlow@v1.0.0
 ```
 
-**Note:** Version is injected at build time. The source file `cmd/version.go` intentionally sets `var version = "dev"`; release builds override this via `-ldflags "-X 'devflow/cmd.version=vX.Y.Z'"` (see Makefile). `make install` installs the binary to `~/go/bin/devflow` embedding the latest git tag release version. For development builds (`make build`) the CLI will report `dev`. To install a specific tagged release: `make install VERSION=v1.3.3`. Avoid manually editing `version.go` for releases.
+#### Verify Installation
+
+```bash
+# Check version
+devflow version
+
+# Show help
+devflow --help
+```
+
+**Note for Developers:** Version is injected at build time. The source file `cmd/version.go` intentionally sets `var version = "dev"`; release builds override this via `-ldflags "-X 'devflow/cmd.version=vX.Y.Z'"`. Development builds (`make build`) will report `dev`. See [RELEASE.md](RELEASE.md) for release process details.
 
 ### 2. Configuration
 
@@ -87,6 +156,11 @@ Set up your API credentials:
 ./devflow config set bitbucket.workspace your-workspace
 ./devflow config set bitbucket.username your-username
 ./devflow config set bitbucket.token your-bitbucket-api-token
+
+# Jenkins configuration (optional)
+./devflow config set jenkins.url https://jenkins.example.com
+./devflow config set jenkins.username your-username
+./devflow config set jenkins.token your-jenkins-api-token
 ```
 
 ### 3. Get Your API Tokens
@@ -299,6 +373,87 @@ Notes:
 
 ### Pull Request & Repo Commands
 
+#### PR Diff (New)
+View the unified diff for a pull request:
+```bash
+./devflow pullrequest diff your-repo-name 123
+```
+
+#### PR Comments (Enhanced)
+List all comments with thread organization and resolution status:
+```bash
+./devflow pullrequest comments your-repo-name 123
+# Shows:
+# - Thread ID for each comment
+# - Resolution status (✅ RESOLVED / ⚠️ UNRESOLVED)
+# - File and line numbers for inline comments
+# - Nested replies within threads
+```
+
+#### PR Comment Reply (New)
+Reply to a specific comment thread:
+```bash
+./devflow pullrequest comment-reply your-repo-name 123 456 "Thanks for the feedback!"
+# Where 456 is the thread ID from the comments list
+```
+
+#### JSON Output for Automation & AI Integration
+All pull request commands now support `--json` flag for machine-readable output, perfect for AI agents and automation scripts:
+
+```bash
+# List pull requests with JSON output
+./devflow pullrequest list --json
+./devflow pullrequest list --repo my-repo --json
+
+# Show PR details with JSON
+./devflow pullrequest show my-repo 123 --json
+./devflow pullrequest show my-repo 123 --diff --json  # includes diff
+
+# Get PR diff in JSON
+./devflow pullrequest diff my-repo 123 --json
+
+# List comments with JSON (includes thread structure)
+./devflow pullrequest comments my-repo 123 --json
+
+# Get build statuses with JSON
+./devflow pullrequest builds my-repo 123 --json
+
+# List your PRs with JSON
+./devflow pullrequest mine --json
+./devflow pullrequest mine --repo my-repo --json
+
+# List PRs you're participating in with JSON
+./devflow pullrequest participating --json
+./devflow pullrequest participating --repo my-repo --json
+
+# Create PR and get result as JSON
+./devflow pullrequest create "Feature" --repo my-repo --json
+
+# Add comment and get result as JSON
+./devflow pullrequest add-comment my-repo 123 "LGTM" --json
+
+# Reply to comment and get result as JSON
+./devflow pullrequest comment-reply my-repo 123 456 "Fixed" --json
+
+# Set commit status and get result as JSON
+./devflow pullrequest set-status my-repo abc123 --state SUCCESSFUL --key ci/test --json
+```
+
+All JSON outputs include:
+- Workspace and repository information
+- Structured data (no emojis or formatting)
+- Consistent field naming (snake_case)
+- Complete metadata for further processing
+
+#### Set PR Status with AI Review Key
+When using the AI reviewer, set status with the key `ai-review`:
+```bash
+devflow pullrequest set-status your-repo-name a1b2c3d4e5f6 \
+  --state SUCCESSFUL \
+  --key ai-review \
+  --description "AI review passed"
+```
+
 #### Show Repository README (New)
 Display the README for a Bitbucket repository (tries common filename variants)
 ```bash
@@ -361,8 +516,13 @@ Current PR command behavior (scoped to watched repos):
 ```bash
 # List PRs in a specific watched repo (fails if not watched)
 ./devflow pullrequest list --repo my-repo
+
 # Aggregate PRs across all watched repos
 ./devflow pullrequest list
+
+# Output in JSON format (for scripts/automation)
+./devflow pullrequest list --json
+./devflow pullrequest list --repo my-repo --json
 
 # PRs where you are author (watched repos unless --all-repos)
 ./devflow pullrequest mine                # aggregate across watched
@@ -422,6 +582,28 @@ devflow pullrequest set-status your-repo-name a1b2c3d4e5f6 \
 States: SUCCESSFUL, FAILED, INPROGRESS, STOPPED, ERROR, PENDING, CANCELLED
 Reusing the same `--key` updates the existing status entry.
 If you omit --name or --url they will be reused from an existing status (if present) or default (name=key). --description is optional; omit it to keep existing text.
+
+### Jenkins Commands
+
+#### List Recent Builds
+View recent builds for a Jenkins job:
+```bash
+# Default (last 10 builds)
+./devflow jenkins builds my-pipeline
+
+# Specify number of builds
+./devflow jenkins builds my-pipeline --limit 20
+```
+
+#### Fetch Build Logs
+Retrieve console logs for a specific build:
+```bash
+# Full console log
+./devflow jenkins logs my-pipeline 123
+
+# Only failed stage logs (for pipeline jobs)
+./devflow jenkins logs my-pipeline 123 --failed-step
+```
 
 
 ### Configuration Commands

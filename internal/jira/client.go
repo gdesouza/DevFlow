@@ -177,7 +177,11 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 		if err != nil {
 			return nil, fmt.Errorf("failed to make request: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				log.Printf("warning: failed to close response body: %v", err)
+			}
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -225,7 +229,11 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 		if err != nil {
 			return nil, fmt.Errorf("failed to make request: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				log.Printf("warning: failed to close response body: %v", err)
+			}
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -278,7 +286,11 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 				if err != nil {
 					return nil, fmt.Errorf("failed to make token-based request: %w", err)
 				}
-				defer resp.Body.Close()
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						log.Printf("warning: failed to close response body: %v", err)
+					}
+				}()
 				if resp.StatusCode != http.StatusOK {
 					body, _ := io.ReadAll(resp.Body)
 					return nil, fmt.Errorf("API request failed (token) with status: %d, response: %s", resp.StatusCode, string(body))
@@ -330,7 +342,11 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 			if err != nil {
 				return nil, fmt.Errorf("failed to make fallback request: %w", err)
 			}
-			defer fbResp.Body.Close()
+			defer func() {
+				if err := fbResp.Body.Close(); err != nil {
+					log.Printf("warning: failed to close response body: %v", err)
+				}
+			}()
 			if fbResp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(fbResp.Body)
 				return nil, fmt.Errorf("API request failed (fallback) with status: %d, response: %s", fbResp.StatusCode, string(body))
@@ -458,7 +474,11 @@ func (c *Client) SearchAll(query string, isJQL bool, maxResultsPerPage int, maxT
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				log.Printf("warning: failed to close response body: %v", err)
+			}
+		}()
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
@@ -550,7 +570,11 @@ func (c *Client) GetIssueDetails(issueKey string) (*IssueDetails, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("warning: failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -660,7 +684,11 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("warning: failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode == http.StatusBadRequest {
 		var errPayload struct {
@@ -678,12 +706,20 @@ func (c *Client) CreateIssue(opts CreateIssueOptions) (*Issue, error) {
 			}
 		}
 		if len(removed) > 0 {
-			resp.Body.Close()
+			func() {
+				if err := resp.Body.Close(); err != nil {
+					log.Printf("warning: failed to close response body: %v", err)
+				}
+			}()
 			resp2, data2, err2 := attempt(fields)
 			if err2 != nil {
 				return nil, err2
 			}
-			defer resp2.Body.Close()
+			defer func() {
+				if err := resp2.Body.Close(); err != nil {
+					log.Printf("warning: failed to close response body: %v", err)
+				}
+			}()
 			if resp2.StatusCode != http.StatusCreated {
 				return nil, fmt.Errorf("API request failed (after retry) with status: %d, body: %s", resp2.StatusCode, string(data2))
 			}
@@ -725,7 +761,11 @@ func (c *Client) AddComment(issueKey, body string) error {
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("warning: failed to close response body: %v", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusCreated {
 		data, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("API request failed with status: %d, body: %s", resp.StatusCode, string(data))
@@ -752,7 +792,11 @@ func (c *Client) AddRemoteLink(issueKey, linkURL, title, summary string) error {
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("warning: failed to close response body: %v", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		data, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("API request failed with status: %d, body: %s", resp.StatusCode, string(data))
@@ -812,7 +856,11 @@ func (c *Client) UpdateIssue(issueKey string, fields map[string]interface{}) err
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("warning: failed to close response body: %v", err)
+		}
+	}()
 
 	// Jira returns 204 No Content on success for update
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
@@ -830,7 +878,11 @@ func (c *Client) ListProjects() ([]Project, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("warning: failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

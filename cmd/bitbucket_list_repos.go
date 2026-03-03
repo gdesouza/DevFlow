@@ -178,7 +178,9 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 			}
 		}
 		bldr.WriteString("\r\nKeys: ↑/↓ move  ←/→ page  Space/Enter toggle  w next-watched  g go-page  s save  q quit\r\n")
-		os.Stdout.WriteString(bldr.String())
+		if _, err := os.Stdout.WriteString(bldr.String()); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write to stdout: %v\n", err)
+		}
 
 		// Read key
 		_ = stdin.SetReadDeadline(time.Now().Add(5 * time.Minute)) // ignore deadline errors

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -26,6 +27,7 @@ Behavior changes:
 - With a slug: requires that slug to be watched.
 - --all-repos still uses workspace-level endpoint (ignores watch list).`,
 	Run: func(cmd *cobra.Command, args []string) {
+		jsonOutput, _ := cmd.Flags().GetBool("json")
 		cfg, err := config.Load()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
@@ -43,7 +45,7 @@ Behavior changes:
 		}
 
 		// For --all-repos, we need either bitbucket_user or will use username as fallback
-		if myPRsAllRepos && cfg.Bitbucket.BitbucketUser == "" {
+		if myPRsAllRepos && cfg.Bitbucket.BitbucketUser == "" && !jsonOutput {
 			fmt.Printf("Note: For optimal performance with --all-repos, set your Bitbucket username:\n")
 			fmt.Printf("  devflow config set bitbucket.bitbucket_user <your-bitbucket-username>\n")
 			fmt.Printf("Currently using email address as fallback.\n\n")
@@ -53,11 +55,11 @@ Behavior changes:
 		client := bitbucket.NewClient(&cfg.Bitbucket)
 
 		if myPRsAllRepos {
-			userPRs, err := getPRsToReviewFromAllRepos(client, cfg.Bitbucket.Username)
+			userPRs, err := getPRsToReviewFromAllRepos(client, cfg.Bitbucket.Username, jsonOutput)
 			if err != nil {
 				log.Fatalf("Error fetching pull requests: %v", err)
 			}
-			displayPRsToReview(userPRs, "all repositories", true)
+			displayPRsToReview(userPRs, "all repositories", true, jsonOutput, cfg.Bitbucket.Workspace)
 			return
 		}
 
@@ -84,12 +86,12 @@ Behavior changes:
 			if err != nil {
 				log.Fatalf("Error fetching pull requests: %v", err)
 			}
-			userPRs := filterPRsForUser(prs, cfg.Bitbucket.Username)
+			userPRs := filterPRsForUser(prs, cfg.Bitbucket.Username, jsonOutput)
 			var prsWithRepo []PRWithRepo
 			for _, pr := range userPRs {
 				prsWithRepo = append(prsWithRepo, PRWithRepo{PR: pr, RepoSlug: slug})
 			}
-			displayPRsToReview(prsWithRepo, slug, false)
+			displayPRsToReview(prsWithRepo, slug, false, jsonOutput, cfg.Bitbucket.Workspace)
 			return
 		}
 
@@ -98,21 +100,24 @@ Behavior changes:
 		for w := range watched {
 			prs, err := client.GetPullRequestsWithReviewers(w)
 			if err != nil {
-				fmt.Printf("Warning: failed fetching PRs for %s: %v\n", w, err)
+				if !jsonOutput {
+					fmt.Printf("Warning: failed fetching PRs for %s: %v\n", w, err)
+				}
 				continue
 			}
-			userPRs := filterPRsForUser(prs, cfg.Bitbucket.Username)
+			userPRs := filterPRsForUser(prs, cfg.Bitbucket.Username, jsonOutput)
 			for _, pr := range userPRs {
 				all = append(all, PRWithRepo{PR: pr, RepoSlug: w})
 			}
 		}
-		displayPRsToReview(all, "watched repositories", true)
+		displayPRsToReview(all, "watched repositories", true, jsonOutput, cfg.Bitbucket.Workspace)
 	},
 }
 
 func init() {
 	myPRsCmd.Flags().StringVarP(&myPRsRepoSlug, "repo", "r", "", "Repository slug (required when not using --all-repos)")
 	myPRsCmd.Flags().BoolVar(&myPRsAllRepos, "all-repos", false, "Search across all repositories in the workspace")
+	myPRsCmd.Flags().Bool("json", false, "Output in JSON format")
 }
 
 // PRWithRepo holds a pull request along with its repository information
@@ -122,21 +127,25 @@ type PRWithRepo struct {
 }
 
 // getPRsToReviewFromAllRepos fetches PRs to review from all repositories using the efficient workspace endpoint
-func getPRsToReviewFromAllRepos(client *bitbucket.Client, username string) ([]PRWithRepo, error) {
+func getPRsToReviewFromAllRepos(client *bitbucket.Client, username string, jsonOutput bool) ([]PRWithRepo, error) {
 	// Load config to get workspace info
 	cfg, _ := config.Load()
 	workspace := cfg.Bitbucket.Workspace
 
-	fmt.Printf("Searching for PRs to review in workspace: %s\n", workspace)
-	fmt.Printf("Using efficient workspace-level API to find all PRs where you are a reviewer...\n")
+	if !jsonOutput {
+		fmt.Printf("Searching for PRs to review in workspace: %s\n", workspace)
+		fmt.Printf("Using efficient workspace-level API to find all PRs where you are a reviewer...\n")
+	}
 
 	// Use the efficient workspace endpoint to get all PRs where user is reviewer
 	// Use BitbucketUser if set, otherwise fall back to Username
 	bitbucketUsername := cfg.Bitbucket.BitbucketUser
 	if bitbucketUsername == "" {
 		bitbucketUsername = cfg.Bitbucket.Username
-		fmt.Printf("Warning: Using email as username. For better performance, set your Bitbucket username with:\n")
-		fmt.Printf("  devflow config set bitbucket.bitbucket_user <your-username>\n")
+		if !jsonOutput {
+			fmt.Printf("Warning: Using email as username. For better performance, set your Bitbucket username with:\n")
+			fmt.Printf("  devflow config set bitbucket.bitbucket_user <your-username>\n")
+		}
 	}
 
 	prs, err := client.GetWorkspacePullRequestsForUser(bitbucketUsername)
@@ -144,7 +153,9 @@ func getPRsToReviewFromAllRepos(client *bitbucket.Client, username string) ([]PR
 		return nil, fmt.Errorf("failed to get workspace PRs for user: %w", err)
 	}
 
-	fmt.Printf("Found %d PRs where you are assigned as reviewer across the workspace\n", len(prs))
+	if !jsonOutput {
+		fmt.Printf("Found %d PRs where you are assigned as reviewer across the workspace\n", len(prs))
+	}
 
 	// Convert to PRWithRepo format (we need to extract repo slug from PR data)
 	var prsWithRepo []PRWithRepo
@@ -153,7 +164,9 @@ func getPRsToReviewFromAllRepos(client *bitbucket.Client, username string) ([]PR
 		// The PR structure should contain repository information
 		repoSlug := extractRepoSlugFromPR(pr)
 		if repoSlug == "" {
-			fmt.Printf("Warning: Could not extract repository slug for PR #%d\n", pr.ID)
+			if !jsonOutput {
+				fmt.Printf("Warning: Could not extract repository slug for PR #%d\n", pr.ID)
+			}
 			continue
 		}
 
@@ -163,7 +176,9 @@ func getPRsToReviewFromAllRepos(client *bitbucket.Client, username string) ([]PR
 		})
 	}
 
-	fmt.Printf("Completed search in workspace: %s\n", workspace)
+	if !jsonOutput {
+		fmt.Printf("Completed search in workspace: %s\n", workspace)
+	}
 	return prsWithRepo, nil
 }
 
@@ -185,7 +200,28 @@ func extractRepoSlugFromPR(pr bitbucket.PullRequestWithReviewers) string {
 }
 
 // displayPRsToReview displays the PRs to review
-func displayPRsToReview(prs []PRWithRepo, source string, showRepo bool) {
+func displayPRsToReview(prs []PRWithRepo, source string, showRepo bool, jsonOutput bool, workspace string) {
+	if jsonOutput {
+		output := struct {
+			Workspace    string       `json:"workspace"`
+			Source       string       `json:"source"`
+			TotalPRs     int          `json:"total_prs"`
+			PullRequests []PRWithRepo `json:"pull_requests"`
+		}{
+			Workspace:    workspace,
+			Source:       source,
+			TotalPRs:     len(prs),
+			PullRequests: prs,
+		}
+
+		jsonBytes, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			log.Fatalf("Error marshaling JSON: %v", err)
+		}
+		fmt.Println(string(jsonBytes))
+		return
+	}
+
 	if len(prs) == 0 {
 		fmt.Printf("No pull requests found for %s where you are assigned as reviewer.\n", source)
 		return
@@ -215,24 +251,34 @@ func displayPRsToReview(prs []PRWithRepo, source string, showRepo bool) {
 }
 
 // filterPRsForUser filters pull requests where the given username is a reviewer
-func filterPRsForUser(prs []bitbucket.PullRequestWithReviewers, username string) []bitbucket.PullRequestWithReviewers {
+func filterPRsForUser(prs []bitbucket.PullRequestWithReviewers, username string, jsonOutput bool) []bitbucket.PullRequestWithReviewers {
 	var filtered []bitbucket.PullRequestWithReviewers
 
-	fmt.Printf("Debug: Filtering %d PRs for user '%s'\n", len(prs), username)
+	if !jsonOutput {
+		fmt.Printf("Debug: Filtering %d PRs for user '%s'\n", len(prs), username)
+	}
 
 	for _, pr := range prs {
-		fmt.Printf("Debug: PR #%d '%s' has %d reviewers\n", pr.ID, pr.Title, len(pr.Reviewers))
+		if !jsonOutput {
+			fmt.Printf("Debug: PR #%d '%s' has %d reviewers\n", pr.ID, pr.Title, len(pr.Reviewers))
+		}
 		for _, reviewer := range pr.Reviewers {
-			fmt.Printf("Debug:   Reviewer: '%s'\n", reviewer.DisplayName)
+			if !jsonOutput {
+				fmt.Printf("Debug:   Reviewer: '%s'\n", reviewer.DisplayName)
+			}
 			// Check if the reviewer display name matches (case-insensitive)
 			if strings.EqualFold(reviewer.DisplayName, username) {
-				fmt.Printf("Debug:   ✓ Match found for user '%s'\n", username)
+				if !jsonOutput {
+					fmt.Printf("Debug:   ✓ Match found for user '%s'\n", username)
+				}
 				filtered = append(filtered, pr)
 				break
 			}
 		}
 	}
 
-	fmt.Printf("Debug: Found %d matching PRs\n", len(filtered))
+	if !jsonOutput {
+		fmt.Printf("Debug: Found %d matching PRs\n", len(filtered))
+	}
 	return filtered
 }

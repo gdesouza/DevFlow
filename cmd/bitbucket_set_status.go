@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -31,6 +32,7 @@ States: SUCCESSFUL, FAILED, INPROGRESS, STOPPED, ERROR, PENDING, CANCELLED
 Reusing the same --key upserts (updates) the existing status.`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
+		jsonOutput, _ := cmd.Flags().GetBool("json")
 		repoSlug := args[0]
 		commitHash := args[1]
 
@@ -56,11 +58,34 @@ Reusing the same --key upserts (updates) the existing status.`,
 		}
 
 		client := bitbucket.NewClient(&cfg.Bitbucket)
-		fmt.Printf("Setting status for commit %s in %s...\n", shortHash(commitHash), repoSlug)
+		if !jsonOutput {
+			fmt.Printf("Setting status for commit %s in %s...\n", shortHash(commitHash), repoSlug)
+		}
 
 		st, err := client.SetCommitStatus(repoSlug, commitHash, state, key, name, urlStr, description)
 		if err != nil {
 			log.Fatalf("Failed to set commit status: %v", err)
+		}
+
+		if jsonOutput {
+			output := struct {
+				Workspace  string                  `json:"workspace"`
+				Repository string                  `json:"repository"`
+				CommitHash string                  `json:"commit_hash"`
+				Status     *bitbucket.CommitStatus `json:"status"`
+			}{
+				Workspace:  cfg.Bitbucket.Workspace,
+				Repository: repoSlug,
+				CommitHash: commitHash,
+				Status:     st,
+			}
+
+			jsonBytes, err := json.MarshalIndent(output, "", "  ")
+			if err != nil {
+				log.Fatalf("Error marshaling JSON: %v", err)
+			}
+			fmt.Println(string(jsonBytes))
+			return
 		}
 
 		icon := statusStateIcon(st.State)
@@ -81,6 +106,7 @@ func init() {
 	setStatusCmd.Flags().String("name", "", "Human-friendly status name (defaults to key)")
 	setStatusCmd.Flags().String("url", "", "Link to build or deployment details")
 	setStatusCmd.Flags().String("description", "", "Short description of the status result")
+	setStatusCmd.Flags().Bool("json", false, "Output in JSON format")
 	if err := setStatusCmd.MarkFlagRequired("state"); err != nil {
 		panic(err)
 	}

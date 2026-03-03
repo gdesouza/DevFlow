@@ -153,22 +153,23 @@ func TestSearch_MultiPagePaging(t *testing.T) {
 		vals := r.URL.Query()
 		startAt := 0
 		if sa := vals.Get("startAt"); sa != "" {
-            _,_ = fmt.Sscanf(sa, "%d", &startAt)
+			_, _ = fmt.Sscanf(sa, "%d", &startAt)
 		}
 		maxResults := 2
 		if mr := vals.Get("maxResults"); mr != "" {
-            _,_ = fmt.Sscanf(mr, "%d", &maxResults)
+			_, _ = fmt.Sscanf(mr, "%d", &maxResults)
 		}
 
 		var resp SearchResponse
 		resp.StartAt = startAt
 		resp.MaxResults = maxResults
 		resp.Total = 3
-		if startAt == 0 {
+		switch startAt {
+		case 0:
 			resp.Issues = []Issue{{Key: "ABC-1"}, {Key: "ABC-2"}}
-		} else if startAt == 2 {
+		case 2:
 			resp.Issues = []Issue{{Key: "ABC-3"}}
-		} else {
+		default:
 			resp.Issues = []Issue{}
 		}
 
@@ -211,16 +212,17 @@ func TestSearch_TokenPaging(t *testing.T) {
 		vals := r.URL.Query()
 		pageToken := vals.Get("pageToken")
 		var resp SearchResponse
-		if pageToken == "" {
+		switch pageToken {
+		case "":
 			// first page
 			resp.Issues = []Issue{{Key: "T-1"}, {Key: "T-2"}}
 			resp.NextPageToken = "tok-1"
 			resp.IsLast = false
-		} else if pageToken == "tok-1" {
+		case "tok-1":
 			resp.Issues = []Issue{{Key: "T-3"}}
 			resp.NextPageToken = ""
 			resp.IsLast = true
-		} else {
+		default:
 			resp.Issues = []Issue{}
 			resp.NextPageToken = ""
 			resp.IsLast = true

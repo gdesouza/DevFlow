@@ -1,0 +1,177 @@
+name: Release Debian Package
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on version tags like v1.0.0, v1.2.3
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for version detection
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.25.1'
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Build binary
+        run: |
+          mkdir -p build/usr/bin
+          go build -ldflags "-X 'devflow/cmd.version=${{ steps.version.outputs.tag }}'" -o build/usr/bin/devflow
+          chmod +x build/usr/bin/devflow
+
+      - name: Create Debian package structure
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          mkdir -p build/DEBIAN
+          
+          # Create control file
+          cat > build/DEBIAN/control << EOF
+          Package: devflow
+          Version: ${VERSION}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Gus de Souza <gustavo.souza@avidbots.com>
+          Description: DevFlow - Development Workflow CLI Tool
+           A powerful command-line interface tool for streamlining development
+           workflows with Jira and Bitbucket. Perfect for developers who want to
+           manage tasks and repositories from the terminal.
+          Homepage: https://github.com/gdesouza/DevFlow
+          EOF
+          
+          # Create postinst script (optional, for post-installation tasks)
+          cat > build/DEBIAN/postinst << 'EOF'
+          #!/bin/bash
+          set -e
+          # Ensure the binary is executable
+          chmod +x /usr/bin/devflow
+          exit 0
+          EOF
+          chmod +x build/DEBIAN/postinst
+          
+          # Create prerm script (optional, for pre-removal tasks)
+          cat > build/DEBIAN/prerm << 'EOF'
+          #!/bin/bash
+          set -e
+          exit 0
+          EOF
+          chmod +x build/DEBIAN/prerm
+
+      - name: Build Debian package
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          dpkg-deb --build build devflow_${VERSION}_amd64.deb
+          
+          # Verify the package
+          dpkg-deb --info devflow_${VERSION}_amd64.deb
+          dpkg-deb --contents devflow_${VERSION}_amd64.deb
+
+      - name: Upload to PackageCloud
+        env:
+          PACKAGECLOUD_TOKEN: ${{ secrets.PACKAGECLOUD_TOKEN }}
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          
+          # Install packagecloud CLI
+          gem install package_cloud
+          
+          # Upload to packagecloud
+          # Format: package_cloud push <username>/<repo>/<distro>/<version> <package-file>
+          # Example: package_cloud push gdesouza/devflow/ubuntu/jammy devflow_${VERSION}_amd64.deb
+          
+          # Upload to multiple Ubuntu/Debian distributions
+          for distro in ubuntu/focal ubuntu/jammy ubuntu/noble debian/bullseye debian/bookworm; do
+            echo "Uploading to $distro..."
+            package_cloud push gdesouza/devflow/${distro} devflow_${VERSION}_amd64.deb || echo "Failed to upload to $distro"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: devflow_${{ steps.version.outputs.version }}_amd64.deb
+          body: |
+            ## DevFlow ${{ steps.version.outputs.tag }}
+            
+            ### Installation
+            
+            #### From Debian Package
+            ```bash
+            # Download and install
+            wget https://github.com/gdesouza/DevFlow/releases/download/${{ steps.version.outputs.tag }}/devflow_${{ steps.version.outputs.version }}_amd64.deb
+            sudo dpkg -i devflow_${{ steps.version.outputs.version }}_amd64.deb
+            ```
+            
+            #### From PackageCloud
+            ```bash
+            # Add repository
+            curl -s https://packagecloud.io/install/repositories/gdesouza/devflow/script.deb.sh | sudo bash
+            
+            # Install package
+            sudo apt-get install devflow
+            ```
+            
+            #### From Source
+            ```bash
+            go install github.com/gdesouza/DevFlow@${{ steps.version.outputs.tag }}
+            ```
+            
+            ### Changes
+            See [CHANGELOG.md](https://github.com/gdesouza/DevFlow/blob/main/CHANGELOG.md) for details.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build artifacts for other platforms
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          TAG=${{ steps.version.outputs.tag }}
+          mkdir -p dist
+          
+          # Linux amd64
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X 'devflow/cmd.version=${TAG}'" -o dist/devflow-linux-amd64
+          
+          # Linux arm64
+          GOOS=linux GOARCH=arm64 go build -ldflags "-X 'devflow/cmd.version=${TAG}'" -o dist/devflow-linux-arm64
+          
+          # macOS amd64
+          GOOS=darwin GOARCH=amd64 go build -ldflags "-X 'devflow/cmd.version=${TAG}'" -o dist/devflow-darwin-amd64
+          
+          # macOS arm64 (Apple Silicon)
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X 'devflow/cmd.version=${TAG}'" -o dist/devflow-darwin-arm64
+          
+          # Windows amd64
+          GOOS=windows GOARCH=amd64 go build -ldflags "-X 'devflow/cmd.version=${TAG}'" -o dist/devflow-windows-amd64.exe
+          
+          # Create checksums
+          cd dist
+          sha256sum * > SHA256SUMS
+          cd ..
+
+      - name: Upload additional artifacts to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/devflow-linux-amd64
+            dist/devflow-linux-arm64
+            dist/devflow-darwin-amd64
+            dist/devflow-darwin-arm64
+            dist/devflow-windows-amd64.exe
+            dist/SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

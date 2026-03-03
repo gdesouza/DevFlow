@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Jira      JiraConfig      `json:"jira"`
 	Bitbucket BitbucketConfig `json:"bitbucket"`
+	Jenkins   JenkinsConfig   `json:"jenkins"`
 }
 
 type JiraConfig struct {
@@ -24,6 +25,12 @@ type BitbucketConfig struct {
 	BitbucketUser string   `json:"bitbucket_user"` // Username for API calls
 	Token         string   `json:"token"`
 	WatchedRepos  []string `json:"watched_repos"` // List of watched repository slugs
+}
+
+type JenkinsConfig struct {
+	URL      string `json:"url"`
+	Username string `json:"username"`
+	Token    string `json:"token"`
 }
 
 var configPath = filepath.Join(os.Getenv("HOME"), ".devflow", "config.json")

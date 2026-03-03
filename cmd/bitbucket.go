@@ -16,6 +16,7 @@ Subcommands:
   remotes     Show HTTPS/SSH clone URLs for a repository
   readme      Display repository README contents (tries common filenames)
   watch       Manage watched repositories (add/remove/toggle/list)
+  pipelines   View Bitbucket Pipelines for a repository
 `,
 }
 
@@ -32,6 +33,7 @@ func init() {
 	repoCmd.AddCommand(showRepoCmd)
 	repoCmd.AddCommand(remotesCmd)
 	repoCmd.AddCommand(readmeCmd)
+	repoCmd.AddCommand(pipelinesCmd)
 	pullrequestCmd.AddCommand(listPRsCmd)
 	pullrequestCmd.AddCommand(showPRCmd)
 	pullrequestCmd.AddCommand(myPRsCmd)

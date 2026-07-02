@@ -3,15 +3,14 @@ package bitbucket
 import (
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"devflow/internal/config"
 )
 
 // mockServer helps simulate Bitbucket API responses for specific endpoints.
-func mockServer(t *testing.T, handlers map[string]http.HandlerFunc) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func mockServer(t *testing.T, handlers map[string]http.HandlerFunc) *testServer {
+	return newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h, ok := handlers[r.URL.Path]; ok {
 			h(w, r)
 			return

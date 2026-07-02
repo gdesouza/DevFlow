@@ -2,7 +2,6 @@ package bitbucket
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"devflow/internal/config"
@@ -39,7 +38,7 @@ func TestGetRepositoryReadme(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if content, ok := tc.files[r.URL.Path]; ok {
 				w.WriteHeader(http.StatusOK)
 				if _, err := w.Write([]byte(content)); err != nil {

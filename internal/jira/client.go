@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"devflow/internal/config"
 )
@@ -111,8 +112,16 @@ type Project struct {
 func NewClient(cfg *config.JiraConfig) *Client {
 	return &Client{
 		config:     cfg,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}
+}
+
+func escapeJQLStringLiteral(value string) string {
+	value = strings.ReplaceAll(value, `\`, `\\`)
+	value = strings.ReplaceAll(value, `"`, `\"`)
+	value = strings.ReplaceAll(value, "\r", " ")
+	value = strings.ReplaceAll(value, "\n", " ")
+	return value
 }
 
 func (c *Client) makeRequest(method, endpoint string, body interface{}) (*http.Response, error) {
@@ -163,7 +172,7 @@ func (c *Client) Search(query string, isJQL bool, maxResults int, startAtArg int
 			// default to issues assigned to current user
 			jql = "assignee = currentUser() ORDER BY updated DESC"
 		} else {
-			jql = fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", trimmed)
+			jql = fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", escapeJQLStringLiteral(trimmed))
 		}
 	}
 
@@ -444,7 +453,7 @@ func (c *Client) SearchAll(query string, isJQL bool, maxResultsPerPage int, maxT
 		if trimmed == "" {
 			jql = "assignee = currentUser() ORDER BY updated DESC"
 		} else {
-			jql = fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", trimmed)
+			jql = fmt.Sprintf("text ~ \"%s\" ORDER BY updated DESC", escapeJQLStringLiteral(trimmed))
 		}
 	}
 	encodedJQL := url.QueryEscape(jql)

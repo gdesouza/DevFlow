@@ -190,7 +190,7 @@ func TestGetTotalRepositoryCount_WithNext(t *testing.T) {
 	c.rateLimiter = nil
 
 	ft := &fakeTransport{handler: func(req *http.Request, call int) *http.Response {
-		body := `{"values":[], "next":"https://api.bitbucket.org/2.0/repositories/w?page=2"}`
+		body := `{"size":50,"values":[], "next":"https://api.bitbucket.org/2.0/repositories/w?page=2"}`
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{"Content-Type": {"application/json"}}}
 	}}
 	c.httpClient = &http.Client{Transport: ft}
@@ -200,7 +200,7 @@ func TestGetTotalRepositoryCount_WithNext(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if count != 50 {
-		t.Fatalf("expected estimate 50, got %d", count)
+		t.Fatalf("expected total 50, got %d", count)
 	}
 }
 

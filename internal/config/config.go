@@ -33,7 +33,12 @@ type JenkinsConfig struct {
 	Token    string `json:"token"`
 }
 
-var configPath = filepath.Join(os.Getenv("HOME"), ".devflow", "config.json")
+var configPath = func() string {
+	if homeDir, err := os.UserHomeDir(); err == nil && homeDir != "" {
+		return filepath.Join(homeDir, ".devflow", "config.json")
+	}
+	return filepath.Join(".devflow", "config.json")
+}()
 
 // Load reads the configuration from disk
 func Load() (*Config, error) {
@@ -58,7 +63,7 @@ func Load() (*Config, error) {
 func Save(config *Config) error {
 	// Create config directory if it doesn't exist
 	configDir := filepath.Dir(configPath)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 

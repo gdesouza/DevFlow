@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"devflow/internal/config"
 )
@@ -60,7 +61,7 @@ type BuildStage struct {
 func NewClient(cfg *config.JenkinsConfig) *Client {
 	return &Client{
 		config:     cfg,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: 30 * time.Second},
 		baseURL:    strings.TrimSuffix(cfg.URL, "/"),
 	}
 }

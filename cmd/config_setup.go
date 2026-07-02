@@ -41,7 +41,7 @@ var setupConfigCmd = &cobra.Command{
 		cfg.Bitbucket.Workspace = promptWithDefault(reader, "Bitbucket workspace", cfg.Bitbucket.Workspace)
 		cfg.Bitbucket.Username = promptWithDefault(reader, "Bitbucket email (for authentication)", cfg.Bitbucket.Username)
 		cfg.Bitbucket.BitbucketUser = promptWithDefault(reader, "Bitbucket username (for API calls)", cfg.Bitbucket.BitbucketUser)
-		cfg.Bitbucket.Token = promptWithDefault(reader, "Bitbucket app password", cfg.Bitbucket.Token)
+		cfg.Bitbucket.Token = promptWithDefault(reader, "Bitbucket API token", cfg.Bitbucket.Token)
 
 		// Save configuration
 		if err := config.Save(cfg); err != nil {

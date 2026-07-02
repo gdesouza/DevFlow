@@ -206,6 +206,8 @@ List and inspect the sync status of all git repositories under a directory (recu
 
 Default output now streams each repository line-by-line as soon as it is processed (faster feedback on large trees). Use `--tabular` to wait for all results and render the full table. JSON remains available with `--json`.
 
+Pagination is 1-based at the CLI level. For example, `--page 1` shows the first page.
+
 ```bash
 # Basic usage (current directory) - streaming lines: path<TAB>branch<TAB>state
 ./devflow git list
@@ -726,6 +728,7 @@ devflow/
 #### Configuration not found
 - Run the configuration commands again
 - Check that `~/.devflow/config.json` exists
+- If your home directory is unusual or unset, DevFlow falls back to `.devflow/config.json` in the current working directory
 
 ### Debug Mode
 ```bash

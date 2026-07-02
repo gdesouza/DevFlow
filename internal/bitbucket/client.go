@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"devflow/internal/config"
+	"devflow/internal/httpx"
 )
 
 type Client struct {
@@ -150,7 +151,7 @@ func NewClient(cfg *config.BitbucketConfig) *Client {
 
 	return &Client{
 		config:      cfg,
-		httpClient:  &http.Client{Timeout: 30 * time.Second},
+		httpClient:  httpx.NewClient(30 * time.Second),
 		rateLimiter: rateLimiter,
 		baseURL:     "https://api.bitbucket.org/2.0",
 	}
@@ -187,11 +188,7 @@ func (c *Client) makeRequestWithRetry(method, endpoint string, body interface{},
 		// - If a username (email) is configured, prefer Basic (personal API token)
 		// - If no username, assume a resource access token and use Bearer
 		// No automatic fallback to avoid masking misconfiguration.
-		if c.config.Username != "" {
-			req.SetBasicAuth(c.config.Username, c.config.Token)
-		} else {
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.config.Token))
-		}
+		httpx.ApplyAuth(req, c.config.Username, c.config.Token)
 		req.Header.Set("Accept", "application/json")
 		req.Header.Set("Content-Type", "application/json")
 
@@ -260,7 +257,7 @@ func (c *Client) TestBasicAuth() error {
 	}
 
 	// Use Basic auth instead of Bearer
-	req.SetBasicAuth(c.config.Username, c.config.Token)
+	httpx.ApplyAuth(req, c.config.Username, c.config.Token)
 	req.Header.Set("Accept", "application/json")
 
 	client := &http.Client{}
@@ -1396,11 +1393,7 @@ func (c *Client) GetPipelineStepLog(repoSlug, pipelineUUID, stepUUID string) (st
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	if c.config.Username != "" {
-		req.SetBasicAuth(c.config.Username, c.config.Token)
-	} else {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.config.Token))
-	}
+	httpx.ApplyAuth(req, c.config.Username, c.config.Token)
 	// The log endpoint returns text/plain but only accepts Accept: */*
 	// (not text/plain or application/json — both return 406).
 	req.Header.Set("Accept", "*/*")

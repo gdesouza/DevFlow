@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"devflow/internal/config"
+	"devflow/internal/httpx"
 )
 
 type Client struct {
@@ -112,7 +113,7 @@ type Project struct {
 func NewClient(cfg *config.JiraConfig) *Client {
 	return &Client{
 		config:     cfg,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: httpx.NewClient(30 * time.Second),
 	}
 }
 
@@ -146,7 +147,7 @@ func (c *Client) makeRequest(method, endpoint string, body interface{}) (*http.R
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.SetBasicAuth(c.config.Username, c.config.Token)
+	httpx.ApplyBasicAuth(req, c.config.Username, c.config.Token)
 	req.Header.Set("Content-Type", "application/json")
 
 	return c.httpClient.Do(req)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"devflow/internal/config"
+	"devflow/internal/httpx"
 )
 
 type Client struct {
@@ -61,7 +62,7 @@ type BuildStage struct {
 func NewClient(cfg *config.JenkinsConfig) *Client {
 	return &Client{
 		config:     cfg,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: httpx.NewClient(30 * time.Second),
 		baseURL:    strings.TrimSuffix(cfg.URL, "/"),
 	}
 }
@@ -75,9 +76,7 @@ func (c *Client) makeRequest(method, path string) (*http.Response, error) {
 	}
 
 	// Use API token authentication if configured
-	if c.config.Username != "" && c.config.Token != "" {
-		req.SetBasicAuth(c.config.Username, c.config.Token)
-	}
+	httpx.ApplyBasicAuth(req, c.config.Username, c.config.Token)
 
 	req.Header.Set("Accept", "application/json")
 

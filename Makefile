@@ -21,7 +21,10 @@ clean: ## Clean build artifacts
 
 # Run tests
 test: ## Run tests
-	go test ./...
+	@set -e; tmp=$$(mktemp /tmp/devflow-cover-XXXXXX.out); \
+	go test ./... -covermode=atomic -coverprofile="$$tmp"; \
+	go tool cover -func="$$tmp" | tail -n 1; \
+	rm -f "$$tmp"
 
 # Run linter
 lint: ## Run linter

@@ -60,7 +60,7 @@ Watched repositories scope pull request aggregation and targeted operations.
 ### Breaking Changes (v1.0.0)
 - Replaced top-level command `jira` with `tasks`
 - Replaced top-level command `bitbucket` with separate `repo` and `pullrequest` command groups
-- Removed `bitbucket test-auth` (authentication now implicitly verified on other commands)
+- Replaced the old auth probe with `auth status`
 - Updated pull request subcommands to concise verbs: `list`, `show`, `create`, `mine`
 
 Update any scripts referencing old commands accordingly (e.g. `devflow jira list` -> `devflow tasks list`).
@@ -199,6 +199,17 @@ Set up your API credentials:
 **📅 Migration Note:** App passwords deprecated Sep 9 2025 and disabled Jun 9 2026. Use personal API tokens (Basic) or resource access tokens (Bearer).
 
 ## 📖 Usage Guide
+
+### Authentication
+
+Check whether the configured Bitbucket credentials are valid:
+
+```bash
+./devflow auth status
+```
+
+If you configured `bitbucket.username`, DevFlow uses Basic auth with your email and token.
+If `bitbucket.username` is empty, DevFlow falls back to Bearer auth with the token.
 
 ### Git Utilities (Local Repositories)
 
@@ -654,22 +665,22 @@ cat ~/.devflow/config.json
 ### Setup Development Environment
 ```bash
 # Install dependencies
-go mod tidy
+make dev-setup
 
 # Run tests
-go test ./...
+make test
 
 # Run specific tests
 go test ./internal/config/
 
 # Build for current platform
-go build -o devflow
+make build
 
 # Build for multiple platforms
 make build-all
 
 # Run linter
-golangci-lint run
+make lint
 ```
 
 ### Project Structure

@@ -251,7 +251,7 @@ func (c *Client) TestAuth() error {
 // TestBasicAuth tests authentication using Basic auth instead of Bearer
 func (c *Client) TestBasicAuth() error {
 	// Create a separate request with Basic auth
-	url := "https://api.bitbucket.org/2.0/workspaces"
+	url := fmt.Sprintf("%s/workspaces", c.baseURL)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)
@@ -261,7 +261,10 @@ func (c *Client) TestBasicAuth() error {
 	httpx.ApplyBasicAuth(req, c.config.Username, c.config.Token)
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{}
+	client := c.httpClient
+	if client == nil {
+		client = httpx.NewClient(30 * time.Second)
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"devflow/internal/config"
@@ -22,7 +21,7 @@ func TestSetCommitStatus(t *testing.T) {
 	statusResp := CommitStatus{State: "SUCCESSFUL", Key: "ci/pipeline", Name: "CI Pipeline", URL: "https://ci.example.com/build/42", Description: "All tests passed", UpdatedOn: "2025-10-21T12:00:00+00:00", Type: "build"}
 	respData, _ := json.Marshal(statusResp)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return

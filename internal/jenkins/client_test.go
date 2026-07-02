@@ -1,18 +1,18 @@
 package jenkins
 
 import (
+	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"devflow/internal/config"
-	"fmt"
+	"devflow/internal/httpx"
 )
 
 // Existing tests omitted for brevity...
 
 func TestGetJobBuilds_ErrorStatus(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		if _, err := fmt.Fprint(w, `{"error":"Not found"}`); err != nil {
 			t.Fatalf("write failed: %v", err)
@@ -29,7 +29,7 @@ func TestGetJobBuilds_ErrorStatus(t *testing.T) {
 }
 
 func TestGetJobBuilds_InvalidJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if _, err := fmt.Fprint(w, "not-json"); err != nil {
 			t.Fatalf("write failed: %v", err)
@@ -45,7 +45,7 @@ func TestGetJobBuilds_InvalidJSON(t *testing.T) {
 }
 
 func TestGetBuildLog_ErrorStatus(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		if _, err := fmt.Fprint(w, "fail"); err != nil {
 			t.Fatalf("write failed: %v", err)
@@ -61,7 +61,7 @@ func TestGetBuildLog_ErrorStatus(t *testing.T) {
 }
 
 func TestGetBuildStages_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
@@ -74,7 +74,7 @@ func TestGetBuildStages_NotFound(t *testing.T) {
 }
 
 func TestGetBuildStages_ErrorStatus(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		if _, err := fmt.Fprint(w, "fail"); err != nil {
 			t.Fatalf("write failed: %v", err)
@@ -90,7 +90,7 @@ func TestGetBuildStages_ErrorStatus(t *testing.T) {
 }
 
 func TestGetBuildStages_InvalidJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if _, err := fmt.Fprint(w, "not-json"); err != nil {
 			t.Fatalf("write failed: %v", err)
@@ -107,7 +107,7 @@ func TestGetBuildStages_InvalidJSON(t *testing.T) {
 
 func TestGetBuildStages_Success(t *testing.T) {
 	stagesJson := `{ "stages": [ { "id": "99", "name": "Test", "status": "FAILED", "startTimeMillis": 100, "durationMillis": 200, "error": "" } ]}`
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if _, err := fmt.Fprint(w, stagesJson); err != nil {
 			t.Fatalf("write failed: %v", err)
@@ -130,7 +130,7 @@ func TestGetFailedStepLog_PipelineFailedStage(t *testing.T) {
 	stageJson := `{ "stages": [ { "id": "1234", "name": "Deploy", "status": "FAILED", "startTimeMillis": 10, "durationMillis": 20 } ]}`
 	stageLog := "FAILURE LOG"
 	calls := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		switch r.URL.Path {
 		case "/job/job/1/wfapi/describe":
@@ -163,7 +163,7 @@ func TestGetFailedStepLog_PipelineFallback(t *testing.T) {
 	// stage log endpoint returns error, fallback to full log
 	stageJson := `{ "stages": [ { "id": "456", "name": "Unit", "status": "FAILED" } ]}`
 	calls := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		switch r.URL.Path {
 		case "/job/job/1/wfapi/describe":
@@ -195,7 +195,7 @@ func TestGetFailedStepLog_PipelineFallback(t *testing.T) {
 func TestGetFailedStepLog_NonPipelineJob(t *testing.T) {
 	// wfapi/describe returns nil stages, fallback to full log
 	calls := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		switch r.URL.Path {
 		case "/job/job/1/wfapi/describe":

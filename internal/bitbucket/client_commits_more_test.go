@@ -3,7 +3,6 @@ package bitbucket
 import (
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"devflow/internal/config"
@@ -21,7 +20,7 @@ func TestGetPullRequestCommits_Paginated(t *testing.T) {
 		Next:   "", // Last page
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		if r.URL.Path == "/2.0/repositories/workspace/repo/pullrequests/1/commits" && r.URL.RawQuery == "" {
@@ -68,7 +67,7 @@ func TestGetPullRequestCommits_MalformedCommit(t *testing.T) {
 	// Return JSON where a commit hash is a number (type mismatch -> decode error)
 	malformed := []byte(`{"values":[{"hash":12345,"message":"Bad"}]}`)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/2.0/repositories/workspace/repo/pullrequests/100/commits" {
 			w.WriteHeader(http.StatusNotFound)
 			return

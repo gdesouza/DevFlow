@@ -3,16 +3,16 @@ package jira
 import (
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"devflow/internal/config"
+	"devflow/internal/httpx"
 )
 
 func TestCreateIssue_Succeeds(t *testing.T) {
 	respJSON := `{"key":"PROJ-123","fields":{"summary":"New task"}}`
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/rest/api/3/issue" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
@@ -39,7 +39,7 @@ func TestCreateIssue_Succeeds(t *testing.T) {
 func TestCreateIssue_RetryRemovesCustomFields(t *testing.T) {
 	// Simulate server that returns 400 with errors on first attempt, then 201
 	call := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		call++
 		if r.URL.Path != "/rest/api/3/issue" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -83,7 +83,7 @@ func TestCreateIssue_RetryRemovesCustomFields(t *testing.T) {
 
 func TestAddCommentAndRemoteLink_Extra(t *testing.T) {
 	// Server will accept comment and remotelink
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/comment") {
 			w.WriteHeader(http.StatusCreated)
 			return

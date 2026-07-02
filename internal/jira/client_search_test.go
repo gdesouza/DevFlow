@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"testing"
 
 	"devflow/internal/config"
+	"devflow/internal/httpx"
 )
 
 func TestSearch_FreeTextAndJQL(t *testing.T) {
@@ -39,7 +39,7 @@ func TestSearch_FreeTextAndJQL(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			// Create a test server that validates received query params
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			srv := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path != "/rest/api/3/search/jql" {
 					t.Fatalf("unexpected path: %s", r.URL.Path)
 				}
@@ -92,7 +92,7 @@ func TestSearch_FreeTextAndJQL(t *testing.T) {
 func TestGetMyIssuesAndFindMentions(t *testing.T) {
 	// This server will validate the JQL for GetMyIssues and FindMentions
 	calls := make([]string, 0)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/rest/api/3/search/jql" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
@@ -144,7 +144,7 @@ func TestGetMyIssuesAndFindMentions(t *testing.T) {
 func TestSearch_MultiPagePaging(t *testing.T) {
 	// Simulate a server that returns 2 issues per page, total 3 issues
 	calls := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		if r.URL.Path != "/rest/api/3/search/jql" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -203,7 +203,7 @@ func TestSearch_MultiPagePaging(t *testing.T) {
 func TestSearch_TokenPaging(t *testing.T) {
 	// Simulate a token-based paging server
 	calls := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		if r.URL.Path != "/rest/api/3/search/jql" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
@@ -258,7 +258,7 @@ func TestSearch_TokenPaging(t *testing.T) {
 func TestSearch_EncodingsAndQueryEscape(t *testing.T) {
 	// Ensure special characters are preserved and decoded by the server
 	var seen string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seen = r.URL.RawQuery
 		// Return minimal response
 		resp := SearchResponse{Issues: []Issue{}}

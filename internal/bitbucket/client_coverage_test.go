@@ -36,10 +36,10 @@ func TestMakeRequest_WithBody(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	defer func() {
-	if err := resp.Body.Close(); err != nil {
-		t.Fatalf("failed to close response body: %v", err)
-	}
-}()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("failed to close response body: %v", err)
+		}
+	}()
 
 	if receivedBody["key"] != "value" {
 		t.Fatalf("expected body key=value, got %v", receivedBody)
@@ -69,10 +69,10 @@ func TestMakeRequest_BasicAuth(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	defer func() {
-	if err := resp.Body.Close(); err != nil {
-		t.Fatalf("failed to close response body: %v", err)
-	}
-}()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("failed to close response body: %v", err)
+		}
+	}()
 
 	// Basic auth header starts with "Basic "
 	if !strings.HasPrefix(authHeader, "Basic ") {
@@ -103,10 +103,10 @@ func TestMakeRequest_BearerAuth(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	defer func() {
-	if err := resp.Body.Close(); err != nil {
-		t.Fatalf("failed to close response body: %v", err)
-	}
-}()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("failed to close response body: %v", err)
+		}
+	}()
 
 	if authHeader != "Bearer mytoken" {
 		t.Fatalf("expected Bearer auth header, got %s", authHeader)
@@ -136,10 +136,10 @@ func TestMakeRequest_HTTPError_4xx(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	defer func() {
-	if err := resp.Body.Close(); err != nil {
-		t.Fatalf("failed to close response body: %v", err)
-	}
-}()
+		if err := resp.Body.Close(); err != nil {
+			t.Fatalf("failed to close response body: %v", err)
+		}
+	}()
 
 	// Should not retry on 4xx (except 429)
 	if callCount != 1 {
@@ -842,7 +842,7 @@ func TestGetRepositoriesPaged_NegativePage(t *testing.T) {
 // TestGetFirstPageWithTotal_WithNext tests first page with next URL
 func TestGetFirstPageWithTotal_WithNext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := `{"values":[{"name":"r1","full_name":"w/r1"},{"name":"r2","full_name":"w/r2"}],"next":"https://api.bitbucket.org/2.0/repositories/w?page=2"}`
+		resp := `{"size":2,"values":[{"name":"r1","full_name":"w/r1"},{"name":"r2","full_name":"w/r2"}],"next":"https://api.bitbucket.org/2.0/repositories/w?page=2"}`
 		w.WriteHeader(http.StatusOK)
 		if _, err := w.Write([]byte(resp)); err != nil {
 			t.Fatalf("failed to write response: %v", err)
@@ -862,9 +862,8 @@ func TestGetFirstPageWithTotal_WithNext(t *testing.T) {
 	if len(repos) != 2 {
 		t.Fatalf("expected 2 repos, got %d", len(repos))
 	}
-	// Total should be estimated as len * 5 = 10
-	if total != 10 {
-		t.Fatalf("expected estimated total 10, got %d", total)
+	if total != 2 {
+		t.Fatalf("expected total 2, got %d", total)
 	}
 }
 

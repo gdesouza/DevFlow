@@ -50,7 +50,10 @@ var listReposCmd = &cobra.Command{
 		if interactive {
 			runInteractiveMode(client, cfg.Bitbucket.Workspace)
 		} else {
-			runPagedMode(client, cfg.Bitbucket.Workspace, startPage, pageSize)
+			if startPage < 1 {
+				log.Fatal("Page numbers are 1-based. Use --page 1 or higher.")
+			}
+			runPagedMode(client, cfg.Bitbucket.Workspace, startPage-1, pageSize)
 		}
 	},
 }

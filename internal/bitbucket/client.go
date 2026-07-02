@@ -95,6 +95,7 @@ type Repository struct {
 type RepositoriesResponse struct {
 	Values []Repository `json:"values"`
 	Next   string       `json:"next"`
+	Size   int          `json:"size"`
 }
 
 type PullRequestDetails struct {
@@ -149,7 +150,7 @@ func NewClient(cfg *config.BitbucketConfig) *Client {
 
 	return &Client{
 		config:      cfg,
-		httpClient:  &http.Client{},
+		httpClient:  &http.Client{Timeout: 30 * time.Second},
 		rateLimiter: rateLimiter,
 		baseURL:     "https://api.bitbucket.org/2.0",
 	}
@@ -606,13 +607,8 @@ func (c *Client) GetRepositories() ([]Repository, error) {
 
 		// Check if there's a next page
 		if repoResp.Next != "" {
-			// Extract the relative path from the next URL
-			// The next URL will be something like: https://api.bitbucket.org/2.0/repositories/workspace?page=2
-			// We need to extract just the path part after the base URL
-			if idx := strings.Index(repoResp.Next, "/2.0/"); idx != -1 {
-				endpoint = repoResp.Next[idx+4:] // Skip "/2.0"
-			} else {
-				// Fallback: if we can't parse the next URL, stop pagination
+			endpoint = strings.TrimPrefix(repoResp.Next, c.baseURL+"/")
+			if endpoint == repoResp.Next {
 				break
 			}
 		} else {
@@ -698,12 +694,9 @@ func (c *Client) getFirstPageWithTotal(size int) ([]Repository, int, error) {
 		return nil, 0, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Calculate total count based on whether there's a next page
-	totalCount := len(repoResp.Values)
-	if repoResp.Next != "" {
-		// Estimate total by making another request to get a better count
-		// For now, we'll use a conservative estimate
-		totalCount = len(repoResp.Values) * 5 // Rough estimate
+	totalCount := repoResp.Size
+	if totalCount == 0 {
+		totalCount = len(repoResp.Values)
 	}
 
 	return repoResp.Values, totalCount, nil
@@ -735,13 +728,10 @@ func (c *Client) getTotalRepositoryCount(size int) (int, error) {
 		return 0, err
 	}
 
-	// If there's no next page, we have the total count
-	if repoResp.Next == "" {
-		return len(repoResp.Values), nil
+	if repoResp.Size > 0 {
+		return repoResp.Size, nil
 	}
-
-	// Estimate based on having a next page
-	return 50, nil // Conservative estimate
+	return len(repoResp.Values), nil
 }
 
 // GetRepository retrieves detailed information about a specific repository

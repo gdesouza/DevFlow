@@ -54,6 +54,13 @@ var jenkinsLogsCmd = &cobra.Command{
 			}
 		}
 
+		if wantsJSON(cmd) {
+			if err := printJSON(map[string]any{"job": jobName, "build": buildNumber, "failed_step": failedStep, "logs": logs}); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
+
 		// Output the logs directly
 		fmt.Print(logs)
 	},

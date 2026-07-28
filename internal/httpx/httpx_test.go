@@ -68,7 +68,7 @@ func TestRegisterTestServerAndNewClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("client.Do: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusTeapot {
 		t.Fatalf("unexpected status code: %d", resp.StatusCode)

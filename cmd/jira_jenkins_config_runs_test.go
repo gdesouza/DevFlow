@@ -198,16 +198,16 @@ func TestJiraCreateUpdateAndMentionCmds(t *testing.T) {
 
 func TestJenkinsLogsAndConfigSetupCmd(t *testing.T) {
 	registerHost(t, "jenkins.example", func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/job/my-job/42/consoleText":
+		switch r.URL.Path {
+		case "/job/my-job/42/consoleText":
 			_, _ = w.Write([]byte("full log"))
-		case r.URL.Path == "/job/my-job/42/wfapi/describe":
+		case "/job/my-job/42/wfapi/describe":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"stages": []map[string]any{
 					{"id": "stage-1", "name": "Build", "status": "FAILED"},
 				},
 			})
-		case r.URL.Path == "/job/my-job/42/execution/node/stage-1/wfapi/log":
+		case "/job/my-job/42/execution/node/stage-1/wfapi/log":
 			_, _ = w.Write([]byte("failed stage log"))
 		default:
 			t.Fatalf("unexpected jenkins request: %s", r.URL.Path)
@@ -234,7 +234,9 @@ func TestJenkinsLogsAndConfigSetupCmd(t *testing.T) {
 	}
 
 	origFailedStep, _ := jenkinsLogsCmd.Flags().GetBool("failed-step")
-	t.Cleanup(func() { _ = jenkinsLogsCmd.Flags().Set("failed-step", map[bool]string{true: "true", false: "false"}[origFailedStep]) })
+	t.Cleanup(func() {
+		_ = jenkinsLogsCmd.Flags().Set("failed-step", map[bool]string{true: "true", false: "false"}[origFailedStep])
+	})
 	_ = jenkinsLogsCmd.Flags().Set("failed-step", "true")
 	out = captureStdout(func() {
 		jenkinsLogsCmd.Run(jenkinsLogsCmd, []string{"my-job", "42"})

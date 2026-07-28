@@ -26,6 +26,7 @@ Behavior:
 - Without a slug: aggregates PRs across all watched repositories.
 - A repository must be added via 'devflow bitbucket repo watch add <repo>' to be included.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		jsonOutput = wantsJSON(cmd)
 		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)

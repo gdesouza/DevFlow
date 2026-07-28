@@ -23,7 +23,7 @@ Behavior:
 - With a repo slug: requires it be watched.
 - Without slug: aggregates across all watched repositories.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		jsonOutput, _ := cmd.Flags().GetBool("json")
+		jsonOutput := wantsJSON(cmd)
 		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)

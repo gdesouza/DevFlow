@@ -17,7 +17,7 @@ var commentReplyCmd = &cobra.Command{
 	Long:    `Reply to a specific comment thread (inline or top-level) on a pull request. Avoids adding top-level noise.`,
 	Args:    cobra.ExactArgs(4),
 	Run: func(cmd *cobra.Command, args []string) {
-		jsonOutput, _ := cmd.Flags().GetBool("json")
+		jsonOutput := wantsJSON(cmd)
 		repoSlug := args[0]
 		prIDStr := args[1]
 		threadIDStr := args[2]

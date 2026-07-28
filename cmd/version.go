@@ -12,6 +12,12 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version of devflow",
 	Run: func(cmd *cobra.Command, args []string) {
+		if wantsJSON(cmd) {
+			if err := printJSON(map[string]string{"version": version}); err != nil {
+				fmt.Printf("Error encoding JSON: %v\n", err)
+			}
+			return
+		}
 		fmt.Println(version)
 	},
 }

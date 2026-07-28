@@ -31,7 +31,7 @@ States: SUCCESSFUL, FAILED, INPROGRESS, STOPPED, ERROR, PENDING, CANCELLED
 Reusing the same --key upserts (updates) the existing status.`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		jsonOutput, _ := cmd.Flags().GetBool("json")
+		jsonOutput := wantsJSON(cmd)
 		repoSlug := args[0]
 		commitHash := args[1]
 

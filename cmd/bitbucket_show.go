@@ -19,7 +19,7 @@ var showPRCmd = &cobra.Command{
 	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		showDiff, _ := cmd.Flags().GetBool("diff")
-		jsonOutput, _ := cmd.Flags().GetBool("json")
+		jsonOutput := wantsJSON(cmd)
 		repoSlug := args[0]
 		prIDStr := args[1]
 

@@ -41,7 +41,7 @@ Examples:
 	Run: func(cmd *cobra.Command, args []string) {
 		repoSlug := args[0]
 		limit, _ := cmd.Flags().GetInt("limit")
-		jsonOutput, _ := cmd.Flags().GetBool("json")
+		jsonOutput := wantsJSON(cmd)
 
 		cfg, err := loadConfig()
 		if err != nil {
@@ -127,7 +127,7 @@ Examples:
 	Run: func(cmd *cobra.Command, args []string) {
 		repoSlug := args[0]
 		pipelineRef := args[1]
-		jsonOutput, _ := cmd.Flags().GetBool("json")
+		jsonOutput := wantsJSON(cmd)
 
 		cfg, err := loadConfig()
 		if err != nil {
@@ -258,6 +258,12 @@ Examples:
 		logOutput, err := client.GetPipelineStepLog(repoSlug, pipelineUUID, stepUUID)
 		if err != nil {
 			log.Fatalf("Error fetching step log: %v", err)
+		}
+		if wantsJSON(cmd) {
+			if err := printJSON(map[string]string{"repository": repoSlug, "pipeline_uuid": pipelineUUID, "step_uuid": stepUUID, "log": logOutput}); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
 		}
 
 		fmt.Print(logOutput)

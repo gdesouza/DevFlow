@@ -23,6 +23,12 @@ var watchListCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("load config: %v", err)
 		}
+		if wantsJSON(cmd) {
+			if err := printJSON(cfg.Bitbucket.WatchedRepos); err != nil {
+				log.Fatalf("encode watched repositories: %v", err)
+			}
+			return
+		}
 		if len(cfg.Bitbucket.WatchedRepos) == 0 {
 			fmt.Println("No watched repositories.")
 			return

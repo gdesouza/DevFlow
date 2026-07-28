@@ -17,7 +17,7 @@ var prDiffCmd = &cobra.Command{
 	Long:    `Retrieve and display the unified diff for a specific pull request. Optimized for AI consumption.`,
 	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		jsonOutput, _ := cmd.Flags().GetBool("json")
+		jsonOutput := wantsJSON(cmd)
 		repoSlug := args[0]
 		prIDStr := args[1]
 

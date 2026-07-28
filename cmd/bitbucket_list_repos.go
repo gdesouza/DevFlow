@@ -36,6 +36,23 @@ var listReposCmd = &cobra.Command{
 
 		client := bitbucket.NewClient(&cfg.Bitbucket)
 
+		if wantsJSON(cmd) {
+			repos, totalCount, err := client.GetRepositoriesPaged(startPage-1, pageSize)
+			if err != nil {
+				log.Fatalf("Error fetching repositories: %v", err)
+			}
+			if err := printJSON(map[string]any{
+				"workspace":    cfg.Bitbucket.Workspace,
+				"page":         startPage,
+				"page_size":    pageSize,
+				"total_count":  totalCount,
+				"repositories": repos,
+			}); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
+
 		if interactive {
 			runInteractiveMode(client, cfg.Bitbucket.Workspace)
 			return

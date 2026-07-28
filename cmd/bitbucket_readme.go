@@ -37,6 +37,12 @@ var readmeCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
+		if wantsJSON(cmd) {
+			if err := printJSON(map[string]string{"repository": repoSlug, "filename": filename, "contents": contents}); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 
 		if readmeRaw {
 			fmt.Print(contents)

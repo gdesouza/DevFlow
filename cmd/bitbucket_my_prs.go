@@ -30,7 +30,7 @@ Behavior changes:
 - With a slug: requires that slug to be watched.
 - --all-repos still uses workspace-level endpoint (ignores watch list).`,
 	Run: func(cmd *cobra.Command, args []string) {
-		jsonOutput, _ := cmd.Flags().GetBool("json")
+		jsonOutput := wantsJSON(cmd)
 		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)

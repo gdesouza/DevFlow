@@ -50,6 +50,12 @@ var commentCmd = &cobra.Command{
 		if err := client.AddComment(issueKey, body); err != nil {
 			log.Fatalf("Failed to add comment: %v", err)
 		}
+		if wantsJSON(cmd) {
+			if err := printJSON(map[string]string{"issue": issueKey, "body": body, "added": "true"}); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 
 		fmt.Printf("✅ Added comment to %s\n", issueKey)
 	},

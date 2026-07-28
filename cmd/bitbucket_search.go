@@ -71,6 +71,12 @@ Examples:
 
 		// Sort by name for stable output
 		sort.Slice(matches, func(i, j int) bool { return strings.ToLower(matches[i].Name) < strings.ToLower(matches[j].Name) })
+		if wantsJSON(cmd) {
+			if err := printJSON(matches); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 
 		fmt.Printf("Found %d matching repositories in workspace '%s':\n\n", len(matches), cfg.Bitbucket.Workspace)
 		displayReposPage(matches, cfg.Bitbucket.Workspace)

@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"devflow/internal/config"
 	"devflow/internal/jira"
 	"github.com/spf13/cobra"
 )
@@ -44,6 +45,12 @@ var showIssueCmd = &cobra.Command{
 		issue, err := client.GetIssueDetails(issueKey)
 		if err != nil {
 			log.Fatalf("Error fetching issue details: %v", err)
+		}
+		if wantsJSON(cmd) {
+			if err := printJSON(issue); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
 		}
 
 		// Display issue details

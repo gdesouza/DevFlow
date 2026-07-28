@@ -72,6 +72,12 @@ var createTaskCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Failed to create Jira issue: %v", err)
 		}
+		if wantsJSON(cmd) {
+			if err := printJSON(map[string]string{"key": issue.Key, "title": title, "url": cfg.Jira.URL + "/browse/" + issue.Key}); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 
 		fmt.Printf("Created Jira issue %s: %s\n", issue.Key, title)
 		fmt.Printf("URL: %s/browse/%s\n", cfg.Jira.URL, issue.Key)

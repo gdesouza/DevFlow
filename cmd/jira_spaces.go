@@ -41,6 +41,12 @@ var spacesCmd = &cobra.Command{
 		}
 
 		// Display results
+		if wantsJSON(cmd) {
+			if err := printJSON(projects); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 		if len(projects) == 0 {
 			fmt.Println("No Jira projects found.")
 			return

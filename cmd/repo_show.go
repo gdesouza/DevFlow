@@ -42,6 +42,12 @@ var showRepoCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Error fetching repository details: %v", err)
 		}
+		if wantsJSON(cmd) {
+			if err := printJSON(repo); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 
 		displayRepositoryDetails(repo, cfg.Bitbucket.Workspace)
 	},

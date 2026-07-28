@@ -17,7 +17,7 @@ var addCommentCmd = &cobra.Command{
 	Long:    `Create a new comment on a specific pull request. Use --file and --line to post an inline comment anchored to a specific location in the diff.`,
 	Args:    cobra.MinimumNArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
-		jsonOutput, _ := cmd.Flags().GetBool("json")
+		jsonOutput := wantsJSON(cmd)
 		filePath, _ := cmd.Flags().GetString("file")
 		line, _ := cmd.Flags().GetInt("line")
 

@@ -39,6 +39,12 @@ var jenkinsBuildsCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Error fetching builds: %v", err)
 		}
+		if wantsJSON(cmd) {
+			if err := printJSON(builds); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 
 		if len(builds) == 0 {
 			fmt.Printf("No builds found for job: %s\n", jobName)

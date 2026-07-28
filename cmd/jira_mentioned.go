@@ -40,6 +40,12 @@ var mentionedCmd = &cobra.Command{
 		}
 
 		// Display results
+		if wantsJSON(cmd) {
+			if err := printJSON(issues); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 		if len(issues) == 0 {
 			fmt.Println("No Jira issues found where you are mentioned.")
 			return

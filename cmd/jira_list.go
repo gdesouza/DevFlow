@@ -116,6 +116,12 @@ var listTasksCmd = &cobra.Command{
 		sortedIssues := sortIssues(filteredIssues, sortBy)
 
 		// Display results
+		if wantsJSON(cmd) {
+			if err := printJSON(sortedIssues); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 		if len(sortedIssues) == 0 {
 			fmt.Println("No Jira tasks found matching your criteria.")
 			return

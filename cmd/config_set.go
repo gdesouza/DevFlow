@@ -35,6 +35,12 @@ var setConfigCmd = &cobra.Command{
 			fmt.Printf("Error saving config: %v\n", err)
 			return
 		}
+		if wantsJSON(cmd) {
+			if err := printJSON(map[string]string{"key": key, "value": value, "updated": "true"}); err != nil {
+				fmt.Printf("Error encoding JSON: %v\n", err)
+			}
+			return
+		}
 
 		fmt.Printf("Setting config %s = %s\n", key, value)
 	},

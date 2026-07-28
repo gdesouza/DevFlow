@@ -39,6 +39,12 @@ var linkCmd = &cobra.Command{
 		if err := client.AddRemoteLink(issueKey, linkURL, linkTitle, linkSummary); err != nil {
 			log.Fatalf("Failed to add link: %v", err)
 		}
+		if wantsJSON(cmd) {
+			if err := printJSON(map[string]string{"issue": issueKey, "url": linkURL, "added": "true"}); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 		fmt.Printf("🔗 Added link to %s: %s\n", issueKey, linkURL)
 	},
 }

@@ -46,9 +46,9 @@ func TestPipelinesListCommand(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(bitbucket.PipelinesResponse{
 			Values: []bitbucket.Pipeline{
 				{
-					UUID:        "{pipeline-1}",
-					BuildNumber: 42,
-					CreatedOn:   "2026-01-01T10:00:00Z",
+					UUID:             "{pipeline-1}",
+					BuildNumber:      42,
+					CreatedOn:        "2026-01-01T10:00:00Z",
 					BuildSecondsUsed: 125,
 				},
 			},
@@ -91,18 +91,18 @@ func TestPipelinesShowAndLogCommands(t *testing.T) {
 			})
 		case r.URL.Path == "/2.0/repositories/workspace/repo/pipelines/{pipeline-1}":
 			_ = json.NewEncoder(w).Encode(bitbucket.Pipeline{
-				UUID:        "{pipeline-1}",
-				BuildNumber: 42,
-				CreatedOn:   "2026-01-01T10:00:00Z",
-				CompletedOn: "2026-01-01T10:02:00Z",
+				UUID:             "{pipeline-1}",
+				BuildNumber:      42,
+				CreatedOn:        "2026-01-01T10:00:00Z",
+				CompletedOn:      "2026-01-01T10:02:00Z",
 				BuildSecondsUsed: 120,
 			})
 		case r.URL.Path == "/2.0/repositories/workspace/repo/pipelines/{pipeline-1}/steps/":
 			_ = json.NewEncoder(w).Encode(bitbucket.PipelineStepsResponse{
 				Values: []bitbucket.PipelineStep{
 					{
-						UUID:             "{step-1}",
-						Name:             "Build",
+						UUID:              "{step-1}",
+						Name:              "Build",
 						DurationInSeconds: 61,
 					},
 				},
@@ -145,8 +145,8 @@ func TestPipelinesShowAndLogCommands(t *testing.T) {
 func TestBuildsCommand(t *testing.T) {
 	withBitbucketConfig(t)
 	registerBitbucketAPI(t, func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/2.0/repositories/workspace/repo/pullrequests/42/commits":
+		switch r.URL.Path {
+		case "/2.0/repositories/workspace/repo/pullrequests/42/commits":
 			_ = json.NewEncoder(w).Encode(bitbucket.CommitsResponse{
 				Values: []bitbucket.Commit{
 					{
@@ -159,7 +159,7 @@ func TestBuildsCommand(t *testing.T) {
 					},
 				},
 			})
-		case r.URL.Path == "/2.0/repositories/workspace/repo/commit/abcdef1234567890/statuses":
+		case "/2.0/repositories/workspace/repo/commit/abcdef1234567890/statuses":
 			_ = json.NewEncoder(w).Encode(bitbucket.CommitStatusesResponse{
 				Values: []bitbucket.CommitStatus{
 					{

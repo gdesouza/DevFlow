@@ -46,6 +46,8 @@ var gitListCmd = &cobra.Command{
  and show their branch, sync state (up-to-date, ahead, behind, diverged, no-upstream, detached),
  cleanliness (dirty/clean), ahead/behind counts, and upstream branch.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		jsonOutput := formatFor(cmd) == formatJSON || gitListJSON
+		tabularOutput := formatFor(cmd) == formatTabular || gitListTabular
 		start := time.Now()
 		root := gitListPath
 		if root == "" {
@@ -94,7 +96,7 @@ var gitListCmd = &cobra.Command{
 		close(jobs)
 
 		// Streaming mode (default, when not tabular or JSON): print each repo as soon as processed
-		if !gitListTabular && !gitListJSON {
+		if !tabularOutput && !jsonOutput {
 			// Collect results concurrently via another goroutine
 			go func() {
 				wg.Wait()
@@ -106,7 +108,7 @@ var gitListCmd = &cobra.Command{
 			return nil
 		}
 
-		if gitListTabular {
+		if tabularOutput {
 			done := make(chan struct{})
 			go func() {
 				total := len(repos)
@@ -137,7 +139,7 @@ var gitListCmd = &cobra.Command{
 		}
 		sort.Slice(slices, func(i, j int) bool { return slices[i].Path < slices[j].Path })
 
-		if gitListJSON {
+		if jsonOutput {
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
 			return enc.Encode(slices)

@@ -99,6 +99,12 @@ var updateTaskCmd = &cobra.Command{
 		if err := client.UpdateIssue(issueKey, fields); err != nil {
 			log.Fatalf("Failed to update issue: %v", err)
 		}
+		if wantsJSON(cmd) {
+			if err := printJSON(map[string]any{"issue": issueKey, "updated": true, "fields": fields}); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 		fmt.Printf("✅ Updated %s\n", issueKey)
 	},
 }

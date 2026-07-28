@@ -54,6 +54,12 @@ Slug Tips:
 
 		httpsURL := fmt.Sprintf("https://bitbucket.org/%s/%s.git", workspace, repoSlug)
 		sshURL := fmt.Sprintf("git@bitbucket.org:%s/%s.git", workspace, repoSlug)
+		if wantsJSON(cmd) {
+			if err := printJSON(map[string]string{"repository": workspace + "/" + repoSlug, "https": httpsURL, "ssh": sshURL}); err != nil {
+				log.Fatalf("Error encoding JSON: %v", err)
+			}
+			return
+		}
 
 		// Single output mode
 		if remoteSSH {

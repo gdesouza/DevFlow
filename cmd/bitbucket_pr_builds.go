@@ -20,7 +20,7 @@ var buildsCmd = &cobra.Command{
 Displays per-commit status including state, key/name, and URL.`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		jsonOutput, _ := cmd.Flags().GetBool("json")
+		jsonOutput := wantsJSON(cmd)
 		repoSlug := args[0]
 		prIDStr := args[1]
 

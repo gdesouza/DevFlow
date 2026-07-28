@@ -40,7 +40,7 @@ var createPRCmd = &cobra.Command{
 	Long:    `Create a new pull request with the specified title, description, reviewers, and optional auto-detected branches`,
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		jsonOutput, _ := cmd.Flags().GetBool("json")
+		jsonOutput := wantsJSON(cmd)
 		title := args[0]
 
 		// Load configuration

@@ -132,6 +132,7 @@ type normalizedChild struct {
 type normalizedPullRequest struct {
 	ID                string `json:"id"`
 	Name              string `json:"name"`
+	Repository        string `json:"repository,omitempty"`
 	URL               string `json:"url,omitempty"`
 	Status            string `json:"status,omitempty"`
 	Author            string `json:"author,omitempty"`
@@ -194,9 +195,14 @@ func normalizedIssueJSON(issue *jira.IssueDetails, pullRequests []jira.PullReque
 	if includePullRequests {
 		normalizedPullRequests := make([]normalizedPullRequest, 0, len(pullRequests))
 		for _, pullRequest := range pullRequests {
+			repository := pullRequest.Source.Repository.Name
+			if repository == "" {
+				repository = pullRequest.Destination.Repository.Name
+			}
 			normalizedPullRequests = append(normalizedPullRequests, normalizedPullRequest{
 				ID:                pullRequest.ID,
 				Name:              pullRequest.Name,
+				Repository:        repository,
 				URL:               pullRequest.URL,
 				Status:            pullRequest.Status,
 				Author:            pullRequest.Author.Name,

@@ -196,10 +196,16 @@ type PullRequestRef struct {
 		Name string `json:"name"`
 	} `json:"author"`
 	Source struct {
-		Branch string `json:"branch"`
+		Branch     string `json:"branch"`
+		Repository struct {
+			Name string `json:"name"`
+		} `json:"repository"`
 	} `json:"source"`
 	Destination struct {
-		Branch string `json:"branch"`
+		Branch     string `json:"branch"`
+		Repository struct {
+			Name string `json:"name"`
+		} `json:"repository"`
 	} `json:"destination"`
 	LastUpdate string `json:"lastUpdate"`
 }

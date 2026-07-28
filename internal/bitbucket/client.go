@@ -78,6 +78,7 @@ type PullRequestsWithReviewersResponse struct {
 }
 
 type Repository struct {
+	UUID        string `json:"uuid"`
 	Name        string `json:"name"`
 	FullName    string `json:"full_name"`
 	Description string `json:"description"`

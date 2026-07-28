@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -155,9 +156,19 @@ func (c *Client) getTotalRepositoryCount(size int) (int, error) {
 	return len(repoResp.Values), nil
 }
 
-// GetRepository retrieves detailed information about a specific repository.
-func (c *Client) GetRepository(repoSlug string) (*Repository, error) {
-	endpoint := fmt.Sprintf("repositories/%s/%s", c.config.Workspace, repoSlug)
+// GetRepository retrieves detailed information about a repository by slug or UUID.
+func (c *Client) GetRepository(repoIdentifier string) (*Repository, error) {
+	repositoryID := strings.Trim(repoIdentifier, "{}")
+	if isRepositoryUUID(repositoryID) {
+		if repositories, err := c.GetRepositories(); err == nil {
+			for _, repository := range repositories {
+				if strings.EqualFold(strings.Trim(repository.UUID, "{}"), repositoryID) {
+					return &repository, nil
+				}
+			}
+		}
+	}
+	endpoint := fmt.Sprintf("repositories/%s/%s", c.config.Workspace, url.PathEscape(repositoryID))
 	resp, err := c.makeRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
@@ -169,13 +180,31 @@ func (c *Client) GetRepository(repoSlug string) (*Repository, error) {
 	}()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API request failed for repository %s with status: %d, response: %s", repoIdentifier, resp.StatusCode, string(body))
 	}
 	var repo Repository
 	if err := json.NewDecoder(resp.Body).Decode(&repo); err != nil {
 		return nil, fmt.Errorf("failed to decode repository response: %w", err)
 	}
 	return &repo, nil
+}
+
+func isRepositoryUUID(value string) bool {
+	if len(value) != 36 {
+		return false
+	}
+	for index, character := range value {
+		if index == 8 || index == 13 || index == 18 || index == 23 {
+			if character != '-' {
+				return false
+			}
+			continue
+		}
+		if !strings.ContainsRune("0123456789abcdefABCDEF", character) {
+			return false
+		}
+	}
+	return true
 }
 
 // GetRepositoryMainBranch returns the repository's main branch name or a fallback.

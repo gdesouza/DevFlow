@@ -15,6 +15,7 @@ func TestIssueJSONValueIncludesPullRequestsWhenRequested(t *testing.T) {
 		URL:    "https://bitbucket.org/example/repo/pull-requests/1",
 		Status: "OPEN",
 	}}
+	pullRequests[0].Source.Repository.Name = "mapping-service"
 
 	encoded, err := json.Marshal(issueJSONValue(issue, pullRequests, true))
 	if err != nil {
@@ -34,6 +35,29 @@ func TestIssueJSONValueIncludesPullRequestsWhenRequested(t *testing.T) {
 	}
 	if len(output.PullRequests) != 1 || output.PullRequests[0].ID != "pr-1" {
 		t.Fatalf("pull requests were not included: %+v", output.PullRequests)
+	}
+}
+
+func TestNormalizedPullRequestIncludesRepository(t *testing.T) {
+	issue := &jira.IssueDetails{ID: "359571", Key: "PSS-3369"}
+	pullRequests := []jira.PullRequestRef{{ID: "pr-1"}}
+	pullRequests[0].Source.Repository.Name = "mapping-service"
+
+	encoded, err := json.Marshal(normalizedIssueJSON(issue, pullRequests, true, nil, false))
+	if err != nil {
+		t.Fatalf("marshal normalized issue JSON: %v", err)
+	}
+
+	var output struct {
+		PullRequests []struct {
+			Repository string `json:"repository"`
+		} `json:"pull_requests"`
+	}
+	if err := json.Unmarshal(encoded, &output); err != nil {
+		t.Fatalf("unmarshal normalized issue JSON: %v", err)
+	}
+	if len(output.PullRequests) != 1 || output.PullRequests[0].Repository != "mapping-service" {
+		t.Fatalf("repository was not included: %+v", output.PullRequests)
 	}
 }
 

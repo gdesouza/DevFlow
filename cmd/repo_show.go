@@ -10,9 +10,9 @@ import (
 )
 
 var showRepoCmd = &cobra.Command{
-	Use:   "show <repo-name>",
+	Use:   "show <repo-name-or-id>",
 	Short: "Show detailed information about a repository",
-	Long:  `Display detailed information about a Bitbucket repository including description, size, language, and timestamps.`,
+	Long:  `Display detailed information about a Bitbucket repository identified by name/slug or repository UUID, including description, size, language, and timestamps.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repoSlug := args[0]

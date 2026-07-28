@@ -37,6 +37,26 @@ cd DevFlow
 make install
 ```
 
+### Using `go install`
+
+Install the latest version directly from GitHub:
+
+```bash
+go install github.com/gdesouza/DevFlow@latest
+```
+
+To install the current checkout instead:
+
+```bash
+go install .
+```
+
+If the `devflow` command is not found afterward, add Go's binary directory to your `PATH`:
+
+```bash
+export PATH="$(go env GOPATH)/bin:$PATH"
+```
+
 Verify the installation:
 
 ```bash

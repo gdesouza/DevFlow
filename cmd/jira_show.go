@@ -12,6 +12,7 @@ import (
 
 var showChildren bool
 var showPullRequests bool
+var recursive bool
 
 var showIssueCmd = &cobra.Command{
 	Use:   "show [issue-key]",
@@ -45,6 +46,33 @@ var showIssueCmd = &cobra.Command{
 		issue, err := client.GetIssueDetails(issueKey)
 		if err != nil {
 			log.Fatalf("Error fetching issue details: %v", err)
+		}
+		if recursive {
+			children, err := buildIssueTree(client, issueKey, showPullRequests)
+			if err != nil {
+				log.Fatalf("Error fetching recursive child issues: %v", err)
+			}
+			var pullRequests []jira.PullRequestRef
+			if showPullRequests {
+				pullRequests, err = client.GetIssuePullRequests(issue.ID)
+				if err != nil {
+					log.Fatalf("Error fetching pull requests: %v", err)
+				}
+			}
+			if wantsJSON(cmd) {
+				var output any
+				if wantsRaw(cmd) {
+					output = rawIssueTreeValue(issue, pullRequests, showPullRequests, children)
+				} else {
+					output = normalizedIssueJSONWithTree(issue, pullRequests, showPullRequests, children)
+				}
+				if err := printJSON(output); err != nil {
+					log.Fatalf("Error encoding JSON: %v", err)
+				}
+				return
+			}
+			displayRecursiveTable(issue, pullRequests, showPullRequests, children)
+			return
 		}
 		if wantsJSON(cmd) {
 			var pullRequests []jira.PullRequestRef
@@ -122,11 +150,13 @@ type normalizedAttachment struct {
 }
 
 type normalizedChild struct {
-	Key      string `json:"key"`
-	Summary  string `json:"summary"`
-	Status   string `json:"status"`
-	Priority string `json:"priority,omitempty"`
-	Assignee string `json:"assignee,omitempty"`
+	Key          string                   `json:"key"`
+	Summary      string                   `json:"summary"`
+	Status       string                   `json:"status"`
+	Priority     string                   `json:"priority,omitempty"`
+	Assignee     string                   `json:"assignee,omitempty"`
+	Children     *[]normalizedChild       `json:"children,omitempty"`
+	PullRequests *[]normalizedPullRequest `json:"pull_requests,omitempty"`
 }
 
 type normalizedPullRequest struct {
@@ -217,6 +247,113 @@ func normalizedIssueJSON(issue *jira.IssueDetails, pullRequests []jira.PullReque
 	return output
 }
 
+type issueTreeNode struct {
+	Issue        jira.Issue
+	PullRequests []jira.PullRequestRef
+	Children     []issueTreeNode
+}
+
+func normalizedIssueJSONWithTree(issue *jira.IssueDetails, pullRequests []jira.PullRequestRef, includePullRequests bool, children []issueTreeNode) normalizedIssue {
+	output := normalizedIssueJSON(issue, pullRequests, includePullRequests, nil, false)
+	normalizedChildren := make([]normalizedChild, 0, len(children))
+	for _, child := range children {
+		normalizedChildren = append(normalizedChildren, normalizedChildFromTree(child, includePullRequests))
+	}
+	output.Children = &normalizedChildren
+	return output
+}
+
+func normalizedChildFromTree(node issueTreeNode, includePullRequests bool) normalizedChild {
+	child := normalizedChild{
+		Key:      node.Issue.Key,
+		Summary:  node.Issue.Fields.Summary,
+		Status:   node.Issue.Fields.Status.Name,
+		Priority: node.Issue.Fields.Priority.Name,
+		Assignee: node.Issue.Fields.Assignee.DisplayName,
+	}
+	if includePullRequests {
+		pullRequests := normalizedPullRequests(node.PullRequests)
+		child.PullRequests = &pullRequests
+	}
+	if len(node.Children) > 0 {
+		children := make([]normalizedChild, 0, len(node.Children))
+		for _, descendant := range node.Children {
+			children = append(children, normalizedChildFromTree(descendant, includePullRequests))
+		}
+		child.Children = &children
+	}
+	return child
+}
+
+func normalizedPullRequests(pullRequests []jira.PullRequestRef) []normalizedPullRequest {
+	output := make([]normalizedPullRequest, 0, len(pullRequests))
+	for _, pullRequest := range pullRequests {
+		repository := pullRequest.Source.Repository.Name
+		if repository == "" {
+			repository = pullRequest.Destination.Repository.Name
+		}
+		output = append(output, normalizedPullRequest{
+			ID:                pullRequest.ID,
+			Name:              pullRequest.Name,
+			Repository:        repository,
+			URL:               pullRequest.URL,
+			Status:            pullRequest.Status,
+			Author:            pullRequest.Author.Name,
+			SourceBranch:      pullRequest.Source.Branch,
+			DestinationBranch: pullRequest.Destination.Branch,
+			LastUpdate:        pullRequest.LastUpdate,
+		})
+	}
+	return output
+}
+
+type rawIssueTreeNode struct {
+	*jira.Issue
+	PullRequests *[]jira.PullRequestRef `json:"pull_requests,omitempty"`
+	Children     []rawIssueTreeNode     `json:"children,omitempty"`
+}
+
+func rawIssueTreeValue(issue *jira.IssueDetails, pullRequests []jira.PullRequestRef, includePullRequests bool, children []issueTreeNode) any {
+	var pullRequestsValue *[]jira.PullRequestRef
+	if includePullRequests {
+		if pullRequests == nil {
+			pullRequests = []jira.PullRequestRef{}
+		}
+		pullRequestsValue = &pullRequests
+	}
+	rawChildren := make([]rawIssueTreeNode, 0, len(children))
+	for _, child := range children {
+		rawChildren = append(rawChildren, rawIssueTreeNodeFromTree(child, includePullRequests))
+	}
+	return struct {
+		*jira.IssueDetails
+		PullRequests *[]jira.PullRequestRef `json:"pull_requests,omitempty"`
+		Children     []rawIssueTreeNode     `json:"children"`
+	}{
+		IssueDetails: issue,
+		PullRequests: pullRequestsValue,
+		Children:     rawChildren,
+	}
+}
+
+func rawIssueTreeNodeFromTree(node issueTreeNode, includePullRequests bool) rawIssueTreeNode {
+	output := rawIssueTreeNode{Issue: &node.Issue}
+	if includePullRequests {
+		pullRequests := node.PullRequests
+		if pullRequests == nil {
+			pullRequests = []jira.PullRequestRef{}
+		}
+		output.PullRequests = &pullRequests
+	}
+	if len(node.Children) > 0 {
+		output.Children = make([]rawIssueTreeNode, 0, len(node.Children))
+		for _, child := range node.Children {
+			output.Children = append(output.Children, rawIssueTreeNodeFromTree(child, includePullRequests))
+		}
+	}
+	return output
+}
+
 func normalizedText(value any) string {
 	if value == nil {
 		return ""
@@ -257,6 +394,7 @@ func normalizedText(value any) string {
 func init() {
 	showIssueCmd.Flags().BoolVar(&showChildren, "children", false, "List the ticket's child items")
 	showIssueCmd.Flags().BoolVar(&showPullRequests, "pull-requests", false, "List the ticket's linked pull requests")
+	showIssueCmd.Flags().BoolVar(&recursive, "recursive", false, "Include all descendant child items")
 }
 
 func issueJSONValue(issue *jira.IssueDetails, pullRequests []jira.PullRequestRef, includePullRequests bool) any {
@@ -356,6 +494,70 @@ func displayChildIssues(client *jira.Client, cfg *config.Config, issueKey string
 func fetchChildIssues(client *jira.Client, issueKey string) ([]jira.Issue, error) {
 	jql := fmt.Sprintf("parent = %s ORDER BY status ASC, priority DESC", issueKey)
 	return client.Search(jql, true, 0, 0)
+}
+
+func buildIssueTree(client *jira.Client, issueKey string, includePullRequests bool) ([]issueTreeNode, error) {
+	children, err := fetchChildIssues(client, issueKey)
+	if err != nil {
+		return nil, err
+	}
+
+	tree := make([]issueTreeNode, 0, len(children))
+	for _, child := range children {
+		node := issueTreeNode{Issue: child}
+		if includePullRequests {
+			issueID := child.ID
+			if issueID == "" {
+				details, err := client.GetIssueDetails(child.Key)
+				if err != nil {
+					return nil, fmt.Errorf("resolve child issue %s: %w", child.Key, err)
+				}
+				issueID = details.ID
+			}
+			node.PullRequests, err = client.GetIssuePullRequests(issueID)
+			if err != nil {
+				return nil, fmt.Errorf("fetch pull requests for %s: %w", child.Key, err)
+			}
+		}
+		node.Children, err = buildIssueTree(client, child.Key, includePullRequests)
+		if err != nil {
+			return nil, err
+		}
+		tree = append(tree, node)
+	}
+	return tree, nil
+}
+
+func displayRecursiveTable(issue *jira.IssueDetails, pullRequests []jira.PullRequestRef, includePullRequests bool, children []issueTreeNode) {
+	if includePullRequests {
+		fmt.Printf("%-16s %-52s %-20s %s\n", "Ticket", "Name", "Status", "PRs")
+		fmt.Println(strings.Repeat("-", 100))
+		fmt.Printf("%-16s %-52s %-20s %d\n", issue.Key, truncate(issue.Fields.Summary, 52), issue.Fields.Status.Name, len(pullRequests))
+		for _, child := range children {
+			displayRecursiveTableRow(child, true, 0)
+		}
+		return
+	}
+
+	fmt.Printf("%-16s %-60s %s\n", "Ticket", "Name", "Status")
+	fmt.Println(strings.Repeat("-", 100))
+	fmt.Printf("%-16s %-60s %s\n", issue.Key, truncate(issue.Fields.Summary, 60), issue.Fields.Status.Name)
+	for _, child := range children {
+		displayRecursiveTableRow(child, false, 0)
+	}
+}
+
+func displayRecursiveTableRow(node issueTreeNode, includePullRequests bool, depth int) {
+	indent := strings.Repeat("  ", depth+1)
+	name := indent + node.Issue.Fields.Summary
+	if includePullRequests {
+		fmt.Printf("%-16s %-52s %-20s %d\n", node.Issue.Key, truncate(name, 52), node.Issue.Fields.Status.Name, len(node.PullRequests))
+	} else {
+		fmt.Printf("%-16s %-60s %s\n", node.Issue.Key, truncate(name, 60), node.Issue.Fields.Status.Name)
+	}
+	for _, child := range node.Children {
+		displayRecursiveTableRow(child, includePullRequests, depth+1)
+	}
 }
 
 func displayIssueDetails(issue *jira.IssueDetails) {

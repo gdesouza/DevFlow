@@ -61,6 +61,37 @@ func TestNormalizedPullRequestIncludesRepository(t *testing.T) {
 	}
 }
 
+func TestNormalizedIssueJSONWithTreeIncludesChildPullRequests(t *testing.T) {
+	issue := &jira.IssueDetails{ID: "1", Key: "EPIC-1"}
+	child := jira.Issue{ID: "2", Key: "TASK-1"}
+	child.Fields.Summary = "Child task"
+	child.Fields.Status.Name = "In Progress"
+	pullRequests := []jira.PullRequestRef{{ID: "pr-2", Name: "Child PR"}}
+
+	encoded, err := json.Marshal(normalizedIssueJSONWithTree(issue, nil, true, []issueTreeNode{{
+		Issue:        child,
+		PullRequests: pullRequests,
+	}}))
+	if err != nil {
+		t.Fatalf("marshal recursive issue JSON: %v", err)
+	}
+
+	var output struct {
+		Children []struct {
+			Key          string `json:"key"`
+			PullRequests []struct {
+				ID string `json:"id"`
+			} `json:"pull_requests"`
+		} `json:"children"`
+	}
+	if err := json.Unmarshal(encoded, &output); err != nil {
+		t.Fatalf("unmarshal recursive issue JSON: %v", err)
+	}
+	if len(output.Children) != 1 || output.Children[0].Key != "TASK-1" || len(output.Children[0].PullRequests) != 1 || output.Children[0].PullRequests[0].ID != "pr-2" {
+		t.Fatalf("recursive child pull requests were not included: %+v", output.Children)
+	}
+}
+
 func TestIssueJSONValuePreservesDefaultShapeWithoutPullRequests(t *testing.T) {
 	issue := &jira.IssueDetails{ID: "359571", Key: "PSS-3369"}
 

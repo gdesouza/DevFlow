@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"devflow/internal/bitbucket"
-	"devflow/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +29,7 @@ Displays per-commit status including state, key/name, and URL.`,
 			log.Fatalf("Invalid pull request ID: %s", prIDStr)
 		}
 
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

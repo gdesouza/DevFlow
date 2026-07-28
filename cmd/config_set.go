@@ -18,7 +18,7 @@ var setConfigCmd = &cobra.Command{
 		value := args[1]
 
 		// Load existing config
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			fmt.Printf("Error loading config: %v\n", err)
 			return
@@ -31,7 +31,7 @@ var setConfigCmd = &cobra.Command{
 		}
 
 		// Save the updated config
-		if err := config.Save(cfg); err != nil {
+		if err := saveConfig(cfg); err != nil {
 			fmt.Printf("Error saving config: %v\n", err)
 			return
 		}

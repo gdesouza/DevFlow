@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"devflow/internal/bitbucket"
-	"devflow/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +18,7 @@ var showRepoCmd = &cobra.Command{
 		repoSlug := args[0]
 
 		// Load configuration
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"devflow/internal/bitbucket"
-	"devflow/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +45,7 @@ Reusing the same --key upserts (updates) the existing status.`,
 			log.Fatalf("Input validation error: %v", err)
 		}
 
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

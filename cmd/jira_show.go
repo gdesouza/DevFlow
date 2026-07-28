@@ -5,7 +5,6 @@ import (
 	"log"
 	"strings"
 
-	"devflow/internal/config"
 	"devflow/internal/jira"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +21,7 @@ var showIssueCmd = &cobra.Command{
 		issueKey := args[0]
 
 		// Load configuration
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}
@@ -127,7 +126,7 @@ func displayChildIssues(client *jira.Client, cfg *config.Config, issueKey string
 
 func displayIssueDetails(issue *jira.IssueDetails) {
 	// Load config to get the base URL
-	cfg, _ := config.Load()
+	cfg, _ := loadConfig()
 	if cfg != nil && cfg.Jira.URL != "" {
 		fmt.Printf("🔹 %s: %s 🔗 %s/browse/%s\n", issue.Key, issue.Fields.Summary, cfg.Jira.URL, issue.Key)
 	} else {

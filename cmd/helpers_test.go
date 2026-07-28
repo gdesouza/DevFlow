@@ -3,6 +3,7 @@ package cmd
 import (
 	"devflow/internal/bitbucket"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -66,9 +67,15 @@ func TestValidateSetStatusInputs(t *testing.T) {
 	if err := validateSetStatusInputs("SUCCESSFUL", "ci/key", "name", "https://example.com"); err != nil {
 		t.Fatalf("expected valid inputs, got %v", err)
 	}
+	if err := validateSetStatusInputs("SUCCESSFUL", "ci/key", strings.Repeat("n", 201), ""); err == nil {
+		t.Fatalf("expected error for long name")
+	}
 	// Missing state
 	if err := validateSetStatusInputs("", "k", "n", ""); err == nil {
 		t.Fatalf("expected error for empty state")
+	}
+	if err := validateSetStatusInputs("SUCCESSFUL", "   ", "", ""); err == nil {
+		t.Fatalf("expected error for empty key")
 	}
 	// Invalid state
 	if err := validateSetStatusInputs("BAD", "k", "", ""); err == nil {
@@ -130,6 +137,12 @@ func TestRelativeTime(t *testing.T) {
 	old := now.Add(-2 * time.Hour).Format(time.RFC3339)
 	if got := relativeTime(old); got != "2h ago" {
 		t.Fatalf("relativeTime 2h got %q", got)
+	}
+	if got := relativeTime(now.Add(-48 * time.Hour).Format(time.RFC3339)); got != "2d ago" {
+		t.Fatalf("relativeTime 2d got %q", got)
+	}
+	if got := relativeTime(now.Add(-9 * 24 * time.Hour).Format(time.RFC3339)); got != now.Add(-9*24*time.Hour).Format("2006-01-02") {
+		t.Fatalf("relativeTime date fallback got %q", got)
 	}
 	// fallback unknown
 	if got := relativeTime(""); got != "unknown" {

@@ -17,7 +17,7 @@ var getConfigCmd = &cobra.Command{
 		key := args[0]
 
 		// Load existing config
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			fmt.Printf("Error loading config: %v\n", err)
 			return

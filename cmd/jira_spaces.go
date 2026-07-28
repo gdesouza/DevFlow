@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"devflow/internal/config"
 	"devflow/internal/jira"
 
 	"github.com/spf13/cobra"
@@ -16,7 +15,7 @@ var spacesCmd = &cobra.Command{
 	Long:  `List all Jira projects (spaces) accessible to the current user`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load configuration
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

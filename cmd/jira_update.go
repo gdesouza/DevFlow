@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"devflow/internal/config"
 	"devflow/internal/jira"
 	"github.com/spf13/cobra"
 )
@@ -52,7 +51,7 @@ var updateTaskCmd = &cobra.Command{
 		}
 
 		// Load config
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

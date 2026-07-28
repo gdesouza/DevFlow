@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"devflow/internal/bitbucket"
-	"devflow/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +18,7 @@ var readmeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		repoSlug := args[0]
 
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

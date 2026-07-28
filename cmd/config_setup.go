@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"devflow/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +19,7 @@ var setupConfigCmd = &cobra.Command{
 		fmt.Println("")
 
 		// Load existing config
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			fmt.Printf("Error loading config: %v\n", err)
 			return
@@ -44,7 +43,7 @@ var setupConfigCmd = &cobra.Command{
 		cfg.Bitbucket.Token = promptWithDefault(reader, "Bitbucket API token", cfg.Bitbucket.Token)
 
 		// Save configuration
-		if err := config.Save(cfg); err != nil {
+		if err := saveConfig(cfg); err != nil {
 			fmt.Printf("Error saving config: %v\n", err)
 			return
 		}

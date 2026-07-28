@@ -10,11 +10,17 @@ import (
 	"time"
 
 	"devflow/internal/bitbucket"
-	"devflow/internal/config"
 	"golang.org/x/term"
 )
 
-func runPagedMode(client *bitbucket.Client, workspace string, page, size int) {
+type repositoryPager interface {
+	GetRepositoriesPaged(page, size int) ([]bitbucket.Repository, int, error)
+}
+
+var makeRaw = term.MakeRaw
+var restoreRaw = term.Restore
+
+func runPagedMode(client repositoryPager, workspace string, page, size int) {
 	repos, totalCount, err := client.GetRepositoriesPaged(page, size)
 	if err != nil {
 		log.Fatalf("Error fetching repositories: %v", err)
@@ -46,7 +52,7 @@ func runPagedMode(client *bitbucket.Client, workspace string, page, size int) {
 //	g: go to page number
 //	s: save (no-op; autosave already happens)
 //	q: quit
-func runInteractiveMode(client *bitbucket.Client, workspace string) {
+func runInteractiveMode(client repositoryPager, workspace string) {
 	interactivePageSize := pageSize
 	if pageSize == 20 {
 		fmt.Print("Enter page size (default 10): ")
@@ -64,7 +70,7 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 		}
 	}
 
-	cfg, _ := config.Load()
+	cfg, _ := loadConfig()
 	watchedSet := map[string]struct{}{}
 	for _, w := range cfg.Bitbucket.WatchedRepos {
 		watchedSet[strings.ToLower(w)] = struct{}{}
@@ -75,12 +81,12 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 	var totalPages int
 	var totalCount int
 
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	oldState, err := makeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		log.Fatalf("Failed to set raw mode: %v", err)
 	}
 	defer func() {
-		_ = term.Restore(int(os.Stdin.Fd()), oldState)
+		_ = restoreRaw(int(os.Stdin.Fd()), oldState)
 	}()
 
 	stdin := os.Stdin
@@ -229,12 +235,12 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 			}
 		case 'g', 'G':
 			fmt.Print("\nPage number: ")
-			_ = term.Restore(int(os.Stdin.Fd()), oldState)
+			_ = restoreRaw(int(os.Stdin.Fd()), oldState)
 			var pageInput string
 			if _, err := fmt.Scanln(&pageInput); err != nil {
 				pageInput = ""
 			}
-			oldState, _ = term.MakeRaw(int(os.Stdin.Fd()))
+			oldState, _ = makeRaw(int(os.Stdin.Fd()))
 
 			if p, err := strconv.Atoi(strings.TrimSpace(pageInput)); err == nil && p >= 1 && p <= totalPages {
 				currentPage = p - 1
@@ -252,20 +258,20 @@ func runInteractiveMode(client *bitbucket.Client, workspace string) {
 }
 
 func saveWatched(watchedSet map[string]struct{}) {
-	cfg, _ := config.Load()
+	cfg, _ := loadConfig()
 	var list []string
 	for k := range watchedSet {
 		list = append(list, k)
 	}
 	sort.Strings(list)
 	cfg.Bitbucket.WatchedRepos = list
-	if err := config.Save(cfg); err != nil {
+	if err := saveConfig(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to save config: %v\n", err)
 	}
 }
 
 func displayReposPage(repos []bitbucket.Repository, workspace string) {
-	cfg, _ := config.Load()
+	cfg, _ := loadConfig()
 	watched := map[string]struct{}{}
 	for _, w := range cfg.Bitbucket.WatchedRepos {
 		watched[strings.ToLower(w)] = struct{}{}

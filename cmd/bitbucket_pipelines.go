@@ -7,9 +7,12 @@ import (
 	"strconv"
 
 	"devflow/internal/bitbucket"
-	"devflow/internal/config"
 	"github.com/spf13/cobra"
 )
+
+type pipelineLister interface {
+	GetPipelines(repoSlug string, limit int) ([]bitbucket.Pipeline, error)
+}
 
 var pipelinesCmd = &cobra.Command{
 	Use:   "pipelines",
@@ -40,7 +43,7 @@ Examples:
 		limit, _ := cmd.Flags().GetInt("limit")
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}
@@ -126,7 +129,7 @@ Examples:
 		pipelineRef := args[1]
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}
@@ -239,7 +242,7 @@ Examples:
 		pipelineUUID := args[1]
 		stepUUID := args[2]
 
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}
@@ -273,7 +276,7 @@ func init() {
 
 // resolvePipelineUUID accepts either a UUID (contains "{" or "-") or a build
 // number string and returns the pipeline UUID.
-func resolvePipelineUUID(client *bitbucket.Client, repoSlug, ref string) (string, error) {
+func resolvePipelineUUID(client pipelineLister, repoSlug, ref string) (string, error) {
 	// If it looks like a UUID (contains braces or multiple hyphens), use it directly.
 	if len(ref) > 10 && (ref[0] == '{' || countRune(ref, '-') >= 4) {
 		return ref, nil
@@ -412,5 +415,3 @@ func formatSeconds(secs int) string {
 	}
 	return fmt.Sprintf("%dm%ds", mins, remaining)
 }
-
-

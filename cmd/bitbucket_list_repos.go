@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"devflow/internal/bitbucket"
-	"devflow/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +19,7 @@ var listReposCmd = &cobra.Command{
 	Short:   "List repositories in the workspace",
 	Long:    `List repositories in the configured Bitbucket workspace with pagination support`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"devflow/internal/bitbucket"
-	"devflow/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +29,7 @@ var showPRCmd = &cobra.Command{
 		}
 
 		// Load configuration
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

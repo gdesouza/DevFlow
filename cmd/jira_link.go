@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/url"
 
-	"devflow/internal/config"
 	"devflow/internal/jira"
 	"github.com/spf13/cobra"
 )
@@ -28,7 +27,7 @@ var linkCmd = &cobra.Command{
 			log.Fatalf("Invalid URL: %v", err)
 		}
 
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

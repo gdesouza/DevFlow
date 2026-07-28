@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"devflow/internal/bitbucket"
-	"devflow/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +24,7 @@ Behavior:
 - Without slug: aggregates across all watched repositories.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		jsonOutput, _ := cmd.Flags().GetBool("json")
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

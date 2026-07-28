@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"devflow/internal/config"
 	"devflow/internal/jira"
 	"github.com/spf13/cobra"
 )
@@ -15,7 +14,7 @@ var mentionedCmd = &cobra.Command{
 	Long:  `Search for Jira issues where you are mentioned in comments, descriptions, or other text fields`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load configuration
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

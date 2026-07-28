@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"devflow/internal/bitbucket"
-	"devflow/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -15,6 +14,10 @@ var (
 	myPRsRepoSlug string
 	myPRsAllRepos bool
 )
+
+type workspacePullRequestLister interface {
+	GetWorkspacePullRequestsForUser(username string) ([]bitbucket.PullRequestWithReviewers, error)
+}
 
 var myPRsCmd = &cobra.Command{
 	Use:     "mine [repo-slug]",
@@ -28,7 +31,7 @@ Behavior changes:
 - --all-repos still uses workspace-level endpoint (ignores watch list).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		jsonOutput, _ := cmd.Flags().GetBool("json")
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}
@@ -127,9 +130,9 @@ type PRWithRepo struct {
 }
 
 // getPRsToReviewFromAllRepos fetches PRs to review from all repositories using the efficient workspace endpoint
-func getPRsToReviewFromAllRepos(client *bitbucket.Client, username string, jsonOutput bool) ([]PRWithRepo, error) {
+func getPRsToReviewFromAllRepos(client workspacePullRequestLister, username string, jsonOutput bool) ([]PRWithRepo, error) {
 	// Load config to get workspace info
-	cfg, _ := config.Load()
+	cfg, _ := loadConfig()
 	workspace := cfg.Bitbucket.Workspace
 
 	if !jsonOutput {
@@ -230,7 +233,7 @@ func displayPRsToReview(prs []PRWithRepo, source string, showRepo bool, jsonOutp
 	fmt.Printf("Found %d pull requests for %s where you are assigned as reviewer:\n\n", len(prs), source)
 
 	// Load config for workspace
-	cfg, _ := config.Load()
+	cfg, _ := loadConfig()
 
 	for _, prWithRepo := range prs {
 		pr := prWithRepo.PR

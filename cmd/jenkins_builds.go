@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"devflow/internal/config"
 	"devflow/internal/jenkins"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +21,7 @@ var jenkinsBuildsCmd = &cobra.Command{
 		limit, _ := cmd.Flags().GetInt("limit")
 
 		// Load configuration
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("Error loading config: %v", err)
 		}

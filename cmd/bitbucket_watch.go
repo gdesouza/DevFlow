@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"devflow/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +19,7 @@ var watchListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List watched repositories",
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("load config: %v", err)
 		}
@@ -61,7 +60,7 @@ var watchToggleCmd = &cobra.Command{
 	Short: "Toggle repositories in watched list",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg, err := config.Load()
+		cfg, err := loadConfig()
 		if err != nil {
 			log.Fatalf("load config: %v", err)
 		}
@@ -81,7 +80,7 @@ var watchToggleCmd = &cobra.Command{
 		}
 		if changed {
 			cfg.Bitbucket.WatchedRepos = setToSortedSlice(set)
-			if err := config.Save(cfg); err != nil {
+			if err := saveConfig(cfg); err != nil {
 				log.Fatalf("save config: %v", err)
 			}
 		}
@@ -90,7 +89,7 @@ var watchToggleCmd = &cobra.Command{
 }
 
 func modifyWatched(add []string, remove []string) {
-	cfg, err := config.Load()
+	cfg, err := loadConfig()
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}
@@ -108,7 +107,7 @@ func modifyWatched(add []string, remove []string) {
 	}
 
 	cfg.Bitbucket.WatchedRepos = setToSortedSlice(set)
-	if err := config.Save(cfg); err != nil {
+	if err := saveConfig(cfg); err != nil {
 		log.Fatalf("save config: %v", err)
 	}
 	printWatchedSummary(cfg.Bitbucket.WatchedRepos)

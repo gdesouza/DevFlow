@@ -53,6 +53,7 @@ type SearchResponse struct {
 
 // IssueDetails represents detailed information about a Jira issue
 type IssueDetails struct {
+	ID     string `json:"id"`
 	Key    string `json:"key"`
 	Fields struct {
 		Summary     string      `json:"summary"`
@@ -151,6 +152,98 @@ func (c *Client) makeRequest(method, endpoint string, body interface{}) (*http.R
 	req.Header.Set("Content-Type", "application/json")
 
 	return c.httpClient.Do(req)
+}
+
+// makeRequestPath performs a request against an arbitrary path relative to
+// the configured Jira base URL, bypassing the /rest/api/3/ prefix used by
+// makeRequest. This is needed for endpoints living under other REST roots,
+// such as /rest/dev-status/1.0/.
+func (c *Client) makeRequestPath(method, path string, body interface{}) (*http.Response, error) {
+	fullURL := fmt.Sprintf("%s/%s", strings.TrimSuffix(c.config.URL, "/"), strings.TrimPrefix(path, "/"))
+
+	if os.Getenv("DEVFLOW_DEBUG") == "1" || strings.ToLower(os.Getenv("DEVFLOW_DEBUG")) == "true" {
+		log.Printf("Jira request: %s %s", method, fullURL)
+	}
+
+	var reqBody io.Reader
+	if body != nil {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		reqBody = bytes.NewReader(jsonBody)
+	}
+
+	req, err := http.NewRequest(method, fullURL, reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpx.ApplyBasicAuth(req, c.config.Username, c.config.Token)
+	req.Header.Set("Content-Type", "application/json")
+
+	return c.httpClient.Do(req)
+}
+
+// PullRequestRef represents a pull request linked to a Jira issue via the
+// dev-status integration (e.g. Bitbucket, GitHub).
+type PullRequestRef struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	URL    string `json:"url"`
+	Status string `json:"status"`
+	Author struct {
+		Name string `json:"name"`
+	} `json:"author"`
+	Source struct {
+		Branch string `json:"branch"`
+	} `json:"source"`
+	Destination struct {
+		Branch string `json:"branch"`
+	} `json:"destination"`
+	LastUpdate string `json:"lastUpdate"`
+}
+
+type devStatusDetail struct {
+	PullRequests []PullRequestRef `json:"pullRequests"`
+}
+
+type devStatusResponse struct {
+	Detail []devStatusDetail `json:"detail"`
+}
+
+// GetIssuePullRequests fetches the pull requests linked to a Jira issue via
+// the dev-status API (works for Bitbucket and GitHub integrations). issueID
+// is the numeric Jira issue ID (IssueDetails.ID), not the issue key.
+func (c *Client) GetIssuePullRequests(issueID string) ([]PullRequestRef, error) {
+	path := fmt.Sprintf("rest/dev-status/1.0/issue/detail?issueId=%s&applicationType=bitbucket&dataType=pullrequest", url.QueryEscape(issueID))
+
+	resp, err := c.makeRequestPath("GET", path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("warning: failed to close response body: %v", err)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status: %d, response: %s", resp.StatusCode, string(body))
+	}
+
+	var devResp devStatusResponse
+	if err := json.NewDecoder(resp.Body).Decode(&devResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	var prs []PullRequestRef
+	for _, detail := range devResp.Detail {
+		prs = append(prs, detail.PullRequests...)
+	}
+
+	return prs, nil
 }
 
 // Search performs a Jira search using either raw JQL or a free-text query.

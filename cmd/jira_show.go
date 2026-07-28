@@ -10,6 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var showChildren bool
+var showPullRequests bool
+
 var showIssueCmd = &cobra.Command{
 	Use:   "show [issue-key]",
 	Short: "Show detailed information about a Jira issue",
@@ -46,11 +49,80 @@ var showIssueCmd = &cobra.Command{
 
 		// Display issue details
 		displayIssueDetails(issue)
+
+		if showChildren {
+			displayChildIssues(client, cfg, issueKey)
+		}
+
+		if showPullRequests {
+			displayPullRequests(client, issue)
+		}
 	},
 }
 
 func init() {
-	// This will be called when the jira command is initialized
+	showIssueCmd.Flags().BoolVar(&showChildren, "children", false, "List the ticket's child items")
+	showIssueCmd.Flags().BoolVar(&showPullRequests, "pull-requests", false, "List the ticket's linked pull requests")
+}
+
+// displayPullRequests fetches and prints the pull requests linked to the
+// given issue via the Jira dev-status integration.
+func displayPullRequests(client *jira.Client, issue *jira.IssueDetails) {
+	prs, err := client.GetIssuePullRequests(issue.ID)
+	if err != nil {
+		log.Fatalf("Error fetching pull requests: %v", err)
+	}
+
+	fmt.Println()
+	fmt.Printf("🔀 Pull Requests (%d):\n", len(prs))
+	fmt.Println(strings.Repeat("─", 80))
+
+	if len(prs) == 0 {
+		fmt.Println("No pull requests found.")
+		return
+	}
+
+	for _, pr := range prs {
+		fmt.Printf("%s %s (%s → %s)\n", getPRStatusIcon(pr.Status), pr.Name, pr.Source.Branch, pr.Destination.Branch)
+		if pr.Author.Name != "" {
+			fmt.Printf("   👤 %s", pr.Author.Name)
+		}
+		if pr.URL != "" {
+			fmt.Printf(" 🔗 %s", pr.URL)
+		}
+		fmt.Println()
+	}
+}
+
+// displayChildIssues fetches and prints the child issues (e.g. subtasks or
+// items whose parent is issueKey) for the given ticket.
+func displayChildIssues(client *jira.Client, cfg *config.Config, issueKey string) {
+	jql := fmt.Sprintf("parent = %s ORDER BY status ASC, priority DESC", issueKey)
+	children, err := client.Search(jql, true, 0, 0)
+	if err != nil {
+		log.Fatalf("Error fetching child issues: %v", err)
+	}
+
+	fmt.Println()
+	fmt.Printf("🧩 Child Items (%d):\n", len(children))
+	fmt.Println(strings.Repeat("─", 80))
+
+	if len(children) == 0 {
+		fmt.Println("No child items found.")
+		return
+	}
+
+	for _, child := range children {
+		statusIcon := getStatusIcon(child.Fields.Status.Name)
+		fmt.Printf("%s %s - %s", statusIcon, child.Key, child.Fields.Summary)
+		if child.Fields.Priority.Name != "" {
+			fmt.Printf(" %s", getPriorityIcon(child.Fields.Priority.Name))
+		}
+		if cfg != nil && cfg.Jira.URL != "" {
+			fmt.Printf(" 🔗 %s/browse/%s", cfg.Jira.URL, child.Key)
+		}
+		fmt.Println()
+	}
 }
 
 func displayIssueDetails(issue *jira.IssueDetails) {

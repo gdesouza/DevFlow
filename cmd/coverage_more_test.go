@@ -403,4 +403,21 @@ func TestFormatSizeAndRelativeTime(t *testing.T) {
 	if got := formatRelativeTime(time.Now().Add(-48 * time.Hour)); got != "2 days ago" {
 		t.Fatalf("formatRelativeTime days = %q", got)
 	}
+	for _, tc := range []struct {
+		name string
+		age  time.Duration
+		want string
+	}{
+		{name: "minute", age: time.Minute, want: "1 minute ago"},
+		{name: "month singular", age: 30 * 24 * time.Hour, want: "1 month ago"},
+		{name: "month", age: 60 * 24 * time.Hour, want: "2 months ago"},
+		{name: "year singular", age: 365 * 24 * time.Hour, want: "1 year ago"},
+		{name: "year", age: 2 * 365 * 24 * time.Hour, want: "2 years ago"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formatRelativeTime(time.Now().Add(-tc.age)); got != tc.want {
+				t.Fatalf("formatRelativeTime(%s) = %q, want %q", tc.name, got, tc.want)
+			}
+		})
+	}
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -12,7 +11,7 @@ import (
 )
 
 func TestCreatePullRequest_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/2.0/repositories/workspace/repo/pullrequests" {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -51,7 +50,7 @@ func TestCreatePullRequest_Success(t *testing.T) {
 }
 
 func TestGetCommitStatuses_Empty(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/commit/abcdef/statuses") {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -80,7 +79,7 @@ func TestGetCommitStatuses_Empty(t *testing.T) {
 }
 
 func TestGetPullRequestCommits_Non200(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		if _, err := w.Write([]byte("not found")); err != nil {
 			t.Fatalf("failed to write response: %v", err)
@@ -102,7 +101,7 @@ func TestGetPullRequestCommits_Non200(t *testing.T) {
 
 func TestGetRepositoriesPaged_SuccessPages(t *testing.T) {
 	// Use a server that handles both the count request and page requests
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		q := r.URL.RawQuery
 		path := r.URL.Path

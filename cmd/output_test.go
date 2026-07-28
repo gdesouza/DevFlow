@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
+	"devflow/internal/bitbucket"
 	"github.com/spf13/cobra"
 )
 
@@ -76,5 +79,52 @@ func TestWantsTabularHonorsExplicitFormat(t *testing.T) {
 	}
 	if !wantsTabular(cmd) {
 		t.Fatal("tabular format should select tabular output")
+	}
+}
+
+func TestWantsRawAndPrintJSON(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("format", formatDetailed, "")
+	cmd.Flags().Bool("json", false, "")
+	if err := cmd.Flags().Set("format", formatRaw); err != nil {
+		t.Fatal(err)
+	}
+	if !wantsRaw(cmd) || !wantsJSON(cmd) {
+		t.Fatal("raw format should select raw JSON output")
+	}
+
+	out := captureStdout(func() {
+		if err := printJSON(map[string]string{"status": "ok"}); err != nil {
+			t.Fatalf("printJSON failed: %v", err)
+		}
+	})
+	var value map[string]string
+	if err := json.Unmarshal([]byte(out), &value); err != nil {
+		t.Fatalf("invalid JSON output: %v", err)
+	}
+	if value["status"] != "ok" {
+		t.Fatalf("unexpected JSON output: %v", value)
+	}
+}
+
+func TestRenderKeyValueTableAndPRsTabular(t *testing.T) {
+	keyValue := captureStdout(func() {
+		renderKeyValueTable([][2]string{{"Key", "Value"}})
+	})
+	if !strings.Contains(keyValue, "FIELD") || !strings.Contains(keyValue, "Value") {
+		t.Fatalf("unexpected key-value table: %s", keyValue)
+	}
+
+	pr := bitbucket.PullRequest{ID: 7, Title: "Improve output", State: "OPEN"}
+	pr.Author.DisplayName = "Alice"
+	pr.Source.Branch.Name = "feature"
+	pr.Destination.Branch.Name = "main"
+	table := captureStdout(func() {
+		printPRsTabular("workspace", "repo", []bitbucket.PullRequest{pr})
+	})
+	for _, want := range []string{"REPOSITORY", "TITLE", "Improve output", "feature", "main"} {
+		if !strings.Contains(table, want) {
+			t.Fatalf("tabular PR output missing %q: %s", want, table)
+		}
 	}
 }

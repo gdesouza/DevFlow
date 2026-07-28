@@ -75,6 +75,28 @@ func TestRegisterTestServerAndNewClient(t *testing.T) {
 	}
 }
 
+func TestNewTestServerLifecycle(t *testing.T) {
+	server := NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+
+	client := NewClient(time.Second)
+	req, err := http.NewRequest(http.MethodGet, server.URL+"/health", nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("client.Do: %v", err)
+	}
+	_ = resp.Body.Close()
+
+	server.Close()
+	if _, ok := testServerRegistry.Load(server.host); ok {
+		t.Fatal("server handler was not removed by Close")
+	}
+}
+
 func TestRoundTripFallsBackToBaseTransport(t *testing.T) {
 	wantErr := http.ErrUseLastResponse
 	transport := &testAwareTransport{base: roundTripperFunc(func(req *http.Request) (*http.Response, error) {

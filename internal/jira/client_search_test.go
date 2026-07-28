@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"devflow/internal/config"
@@ -287,5 +288,85 @@ func TestSearch_EncodingsAndQueryEscape(t *testing.T) {
 	vals, _ := url.ParseQuery(seen)
 	if vals.Get("jql") == "" {
 		t.Fatalf("server did not receive jql param in RawQuery: %s", seen)
+	}
+}
+
+func TestSearch_FallbackPaging(t *testing.T) {
+	calls := 0
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		var response SearchResponse
+		if calls == 1 {
+			response.Issues = []Issue{{Key: "ABC-0"}}
+		} else {
+			response.Issues = []Issue{{Key: "ABC-0"}, {Key: "ABC-1"}, {Key: "ABC-2"}, {Key: "ABC-3"}}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := NewClient(&config.JiraConfig{URL: server.URL})
+	issues, err := client.Search("project = ABC", true, 2, 2)
+	if err != nil {
+		t.Fatalf("Search fallback failed: %v", err)
+	}
+	if len(issues) != 2 || issues[0].Key != "ABC-2" || issues[1].Key != "ABC-3" {
+		t.Fatalf("unexpected fallback page: %+v", issues)
+	}
+	if calls != 2 {
+		t.Fatalf("expected initial and fallback requests, got %d", calls)
+	}
+}
+
+func TestSearch_TokenPagingRejectsNonzeroStart(t *testing.T) {
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(SearchResponse{
+			Issues:        []Issue{{Key: "ABC-1"}},
+			NextPageToken: "next",
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(&config.JiraConfig{URL: server.URL})
+	_, err := client.Search("project = ABC", true, 2, 1)
+	if err == nil || !strings.Contains(err.Error(), "cannot jump to startAt=1") {
+		t.Fatalf("expected token/startAt error, got %v", err)
+	}
+}
+
+func TestSearchAndGetIssueDetailsDecodeAndAPIErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		code int
+	}{
+		{name: "search invalid json", body: "not json", code: http.StatusOK},
+		{name: "search api error", body: "denied", code: http.StatusForbidden},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.code)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+
+			client := NewClient(&config.JiraConfig{URL: server.URL})
+			_, err := client.Search("ABC", true, 0, 0)
+			if err == nil {
+				t.Fatal("expected Search error")
+			}
+		})
+	}
+
+	server := httpx.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("not json"))
+	}))
+	defer server.Close()
+	client := NewClient(&config.JiraConfig{URL: server.URL})
+	if _, err := client.GetIssueDetails("ABC-1"); err == nil {
+		t.Fatal("expected GetIssueDetails decode error")
 	}
 }

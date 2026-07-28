@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -53,5 +54,19 @@ func TestLoad(t *testing.T) {
 	}
 	if loadedConfig.Bitbucket.Workspace != testConfig.Bitbucket.Workspace {
 		t.Errorf("Expected Bitbucket workspace %s, got %s", testConfig.Bitbucket.Workspace, loadedConfig.Bitbucket.Workspace)
+	}
+}
+
+func TestLoadInvalidJSON(t *testing.T) {
+	tempDir := t.TempDir()
+	originalPath := configPath
+	configPath = filepath.Join(tempDir, "config.json")
+	defer func() { configPath = originalPath }()
+
+	if err := os.WriteFile(configPath, []byte("not json"), 0600); err != nil {
+		t.Fatalf("write invalid config: %v", err)
+	}
+	if _, err := Load(); err == nil {
+		t.Fatal("expected invalid JSON error")
 	}
 }

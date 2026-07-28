@@ -177,3 +177,59 @@ func TestPipelineMethods(t *testing.T) {
 		t.Fatalf("GetPipelineStepLog failed: %q err=%v", logOut, err)
 	}
 }
+
+func TestPipelineMethods_APIErrors(t *testing.T) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = io.WriteString(w, "upstream unavailable")
+	}))
+	defer server.Close()
+
+	client := NewClient(&config.BitbucketConfig{Workspace: "ws", Token: "tok"})
+	client.baseURL = server.URL + "/2.0"
+
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{name: "list", call: func() error {
+			_, err := client.GetPipelines("repo", 1)
+			return err
+		}},
+		{name: "show", call: func() error {
+			_, err := client.GetPipeline("repo", "pipeline")
+			return err
+		}},
+		{name: "steps", call: func() error {
+			_, err := client.GetPipelineSteps("repo", "pipeline")
+			return err
+		}},
+		{name: "log", call: func() error {
+			_, err := client.GetPipelineStepLog("repo", "pipeline", "step")
+			return err
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.call(); err == nil || !strings.Contains(err.Error(), "502") {
+				t.Fatalf("expected API error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestPipelineMethods_InvalidJSON(t *testing.T) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "not json")
+	}))
+	defer server.Close()
+
+	client := NewClient(&config.BitbucketConfig{Workspace: "ws", Token: "tok"})
+	client.baseURL = server.URL + "/2.0"
+	if _, err := client.GetPipeline("repo", "pipeline"); err == nil || !strings.Contains(err.Error(), "failed to decode response") {
+		t.Fatalf("expected pipeline decode error, got %v", err)
+	}
+	if _, err := client.GetPipelineSteps("repo", "pipeline"); err == nil || !strings.Contains(err.Error(), "failed to decode response") {
+		t.Fatalf("expected steps decode error, got %v", err)
+	}
+}

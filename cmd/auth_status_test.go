@@ -124,3 +124,25 @@ func TestRunAuthStatus_AuthFailure(t *testing.T) {
 		t.Fatalf("expected wrapped error %v, got %v", expectedErr, err)
 	}
 }
+
+func TestRunAuthStatus_JSONOutput(t *testing.T) {
+	for _, workspace := range []string{"workspace", ""} {
+		t.Run(workspace, func(t *testing.T) {
+			var out bytes.Buffer
+			err := runAuthStatusWithFormat(func() (*config.Config, error) {
+				return &config.Config{Bitbucket: config.BitbucketConfig{
+					Workspace: workspace,
+					Token:     "token",
+				}}, nil
+			}, func(cfg *config.BitbucketConfig) authChecker {
+				return &fakeAuthClient{}
+			}, &out, true)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !strings.Contains(out.String(), `"authenticated": true`) || !strings.Contains(out.String(), workspace) {
+				t.Fatalf("unexpected JSON output: %q", out.String())
+			}
+		})
+	}
+}

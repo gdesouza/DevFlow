@@ -47,7 +47,14 @@ var showIssueCmd = &cobra.Command{
 			log.Fatalf("Error fetching issue details: %v", err)
 		}
 		if wantsJSON(cmd) {
-			if err := printJSON(issue); err != nil {
+			var pullRequests []jira.PullRequestRef
+			if showPullRequests {
+				pullRequests, err = client.GetIssuePullRequests(issue.ID)
+				if err != nil {
+					log.Fatalf("Error fetching pull requests: %v", err)
+				}
+			}
+			if err := printJSON(issueJSONValue(issue, pullRequests, showPullRequests)); err != nil {
 				log.Fatalf("Error encoding JSON: %v", err)
 			}
 			return
@@ -69,6 +76,22 @@ var showIssueCmd = &cobra.Command{
 func init() {
 	showIssueCmd.Flags().BoolVar(&showChildren, "children", false, "List the ticket's child items")
 	showIssueCmd.Flags().BoolVar(&showPullRequests, "pull-requests", false, "List the ticket's linked pull requests")
+}
+
+func issueJSONValue(issue *jira.IssueDetails, pullRequests []jira.PullRequestRef, includePullRequests bool) any {
+	if !includePullRequests {
+		return issue
+	}
+	if pullRequests == nil {
+		pullRequests = []jira.PullRequestRef{}
+	}
+	return struct {
+		*jira.IssueDetails
+		PullRequests []jira.PullRequestRef `json:"pull_requests"`
+	}{
+		IssueDetails: issue,
+		PullRequests: pullRequests,
+	}
 }
 
 // displayPullRequests fetches and prints the pull requests linked to the

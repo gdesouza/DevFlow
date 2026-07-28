@@ -23,6 +23,17 @@ devflow
 # Configuration files with secrets
 config.json
 .env
+.env.local
+.env.*.local
+.devflow/
+
+# Private keys and certificate bundles
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+.secrets/
 
 # OS generated files
 .DS_Store

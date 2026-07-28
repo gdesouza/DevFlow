@@ -122,6 +122,28 @@ var listTasksCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			rows := make([][]any, 0, len(sortedIssues))
+			for _, issue := range sortedIssues {
+				row := []any{issue.Key, issue.Fields.Summary, issue.Fields.Status.Name}
+				if showPriority {
+					row = append(row, issue.Fields.Priority.Name)
+				}
+				if showSprint {
+					row = append(row, getSprintName(issue.Fields.Sprint))
+				}
+				rows = append(rows, row)
+			}
+			headers := []string{"Ticket", "Summary", "Status"}
+			if showPriority {
+				headers = append(headers, "Priority")
+			}
+			if showSprint {
+				headers = append(headers, "Sprint")
+			}
+			renderTable(headers, rows)
+			return
+		}
 		if len(sortedIssues) == 0 {
 			fmt.Println("No Jira tasks found matching your criteria.")
 			return

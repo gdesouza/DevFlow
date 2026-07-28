@@ -48,6 +48,19 @@ var showRepoCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			visibility := "public"
+			if repo.IsPrivate {
+				visibility = "private"
+			}
+			renderKeyValueTable([][2]string{
+				{"Name", repo.Name}, {"Full Name", repo.FullName}, {"Description", repo.Description},
+				{"Visibility", visibility}, {"Language", repo.Language}, {"Default Branch", repo.MainBranch.Name},
+				{"Size", formatSize(repo.Size)}, {"Created", repo.CreatedOn}, {"Updated", repo.UpdatedOn},
+				{"URL", "https://bitbucket.org/" + repo.FullName},
+			})
+			return
+		}
 
 		displayRepositoryDetails(repo, cfg.Bitbucket.Workspace)
 	},

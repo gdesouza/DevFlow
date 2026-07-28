@@ -83,6 +83,18 @@ var showPRCmd = &cobra.Command{
 			fmt.Println(string(jsonBytes))
 			return
 		}
+		if wantsTabular(cmd) {
+			rows := [][2]string{{"Repository", cfg.Bitbucket.Workspace + "/" + repoSlug}, {"ID", strconv.Itoa(pr.ID)}, {"Title", pr.Title}, {"State", pr.State}, {"Author", pr.Author.DisplayName}, {"Source", pr.Source.Branch.Name}, {"Target", pr.Destination.Branch.Name}, {"Created", pr.CreatedOn}, {"Updated", pr.UpdatedOn}, {"URL", fmt.Sprintf("https://bitbucket.org/%s/%s/pull-requests/%d", cfg.Bitbucket.Workspace, repoSlug, pr.ID)}}
+			if showDiff {
+				diff, err := client.GetPullRequestDiff(repoSlug, prID)
+				if err != nil {
+					log.Fatalf("Error fetching diff: %v", err)
+				}
+				rows = append(rows, [2]string{"Diff", diff})
+			}
+			renderKeyValueTable(rows)
+			return
+		}
 
 		// Display pull request details
 		displayPRDetails(pr, cfg.Bitbucket.Workspace, repoSlug)

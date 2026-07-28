@@ -41,6 +41,10 @@ var setConfigCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Key", key}, {"Value", value}, {"Updated", "true"}})
+			return
+		}
 
 		fmt.Printf("Setting config %s = %s\n", key, value)
 	},

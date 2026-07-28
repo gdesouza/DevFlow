@@ -86,6 +86,10 @@ Reusing the same --key upserts (updates) the existing status.`,
 			fmt.Println(string(jsonBytes))
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Repository", repoSlug}, {"Commit", commitHash}, {"State", st.State}, {"Name", displayName(st)}, {"URL", st.URL}, {"Updated", st.UpdatedOn}})
+			return
+		}
 
 		icon := statusStateIcon(st.State)
 		fmt.Printf("%s %s - %s\n", icon, st.State, displayName(st))

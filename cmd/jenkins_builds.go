@@ -45,6 +45,14 @@ var jenkinsBuildsCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			rows := make([][]any, 0, len(builds))
+			for _, build := range builds {
+				rows = append(rows, []any{build.Number, formatBuildStatus(build.Result, build.Building), formatTimestamp(build.Timestamp), formatDuration(build.Duration)})
+			}
+			renderTable([]string{"Build #", "Status", "Started", "Duration"}, rows)
+			return
+		}
 
 		if len(builds) == 0 {
 			fmt.Printf("No builds found for job: %s\n", jobName)

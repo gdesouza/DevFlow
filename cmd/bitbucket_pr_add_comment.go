@@ -93,6 +93,10 @@ var addCommentCmd = &cobra.Command{
 			fmt.Println(string(jsonBytes))
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Repository", repoSlug}, {"Pull Request", fmt.Sprint(prID)}, {"Comment ID", fmt.Sprint(comment.ID)}, {"Created", comment.CreatedOn}, {"Content", comment.Content.Raw}})
+			return
+		}
 
 		// Display success message
 		if filePath != "" {

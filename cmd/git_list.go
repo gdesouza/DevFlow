@@ -46,8 +46,11 @@ var gitListCmd = &cobra.Command{
  and show their branch, sync state (up-to-date, ahead, behind, diverged, no-upstream, detached),
  cleanliness (dirty/clean), ahead/behind counts, and upstream branch.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		jsonOutput := formatFor(cmd) == formatJSON || gitListJSON
-		tabularOutput := formatFor(cmd) == formatTabular || gitListTabular
+		formatExplicit := cmd.Flags().Changed("format")
+		jsonOutput := (formatExplicit && (formatFor(cmd) == formatJSON || formatFor(cmd) == formatRaw)) ||
+			(!formatExplicit && (formatFor(cmd) == formatJSON || formatFor(cmd) == formatRaw || gitListJSON))
+		tabularOutput := (formatExplicit && formatFor(cmd) == formatTabular) ||
+			(!formatExplicit && (formatFor(cmd) == formatTabular || gitListTabular))
 		start := time.Now()
 		root := gitListPath
 		if root == "" {
@@ -165,6 +168,8 @@ func init() {
 	gitListCmd.Flags().BoolVar(&gitListNoFetch, "no-fetch", false, "Do not run 'git fetch' (faster, but may show stale upstream info)")
 	gitListCmd.Flags().BoolVar(&gitListJSON, "json", false, "Output JSON list")
 	gitListCmd.Flags().BoolVar(&gitListTabular, "tabular", false, "Render full table (waits for all repos)")
+	_ = gitListCmd.Flags().MarkDeprecated("json", "use --format raw instead")
+	_ = gitListCmd.Flags().MarkDeprecated("tabular", "use --format tabular instead")
 }
 
 func discoverGitRepos(root string) ([]string, error) {

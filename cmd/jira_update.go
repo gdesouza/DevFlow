@@ -105,6 +105,10 @@ var updateTaskCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Issue", issueKey}, {"Updated", "true"}})
+			return
+		}
 		fmt.Printf("✅ Updated %s\n", issueKey)
 	},
 }

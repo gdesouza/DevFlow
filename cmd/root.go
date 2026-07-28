@@ -17,7 +17,7 @@ func Execute() error {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&outputFormat, "format", formatDetailed, "Output format: json, tabular, or detailed")
+	rootCmd.PersistentFlags().StringVar(&outputFormat, "format", formatDetailed, "Output format: json, raw, tabular, or detailed")
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(tasksCmd)
 	rootCmd.AddCommand(repoCmd)

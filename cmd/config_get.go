@@ -35,6 +35,10 @@ var getConfigCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{key, value}})
+			return
+		}
 
 		if value == "" {
 			fmt.Printf("No value set for %s\n", key)

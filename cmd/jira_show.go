@@ -100,6 +100,28 @@ var showIssueCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			var pullRequests []jira.PullRequestRef
+			var children []jira.Issue
+			if showPullRequests {
+				pullRequests, err = client.GetIssuePullRequests(issue.ID)
+				if err != nil {
+					log.Fatalf("Error fetching pull requests: %v", err)
+				}
+			}
+			if showChildren {
+				children, err = fetchChildIssues(client, issueKey)
+				if err != nil {
+					log.Fatalf("Error fetching child issues: %v", err)
+				}
+			}
+			tree := make([]issueTreeNode, 0, len(children))
+			for _, child := range children {
+				tree = append(tree, issueTreeNode{Issue: child})
+			}
+			displayRecursiveTable(issue, pullRequests, showPullRequests, tree)
+			return
+		}
 
 		// Display issue details
 		displayIssueDetails(issue)
@@ -529,34 +551,27 @@ func buildIssueTree(client *jira.Client, issueKey string, includePullRequests bo
 }
 
 func displayRecursiveTable(issue *jira.IssueDetails, pullRequests []jira.PullRequestRef, includePullRequests bool, children []issueTreeNode) {
+	rows := [][]any{{issue.Key, issue.Fields.Summary, issue.Fields.Status.Name}}
 	if includePullRequests {
-		fmt.Printf("%-16s %-52s %-20s %s\n", "Ticket", "Name", "Status", "PRs")
-		fmt.Println(strings.Repeat("-", 100))
-		fmt.Printf("%-16s %-52s %-20s %d\n", issue.Key, truncate(issue.Fields.Summary, 52), issue.Fields.Status.Name, len(pullRequests))
-		for _, child := range children {
-			displayRecursiveTableRow(child, true, 0)
+		rows[0] = append(rows[0], len(pullRequests))
+	}
+	var appendRows func([]issueTreeNode, int)
+	appendRows = func(nodes []issueTreeNode, depth int) {
+		for _, node := range nodes {
+			name := strings.Repeat("  ", depth) + node.Issue.Fields.Summary
+			row := []any{node.Issue.Key, name, node.Issue.Fields.Status.Name}
+			if includePullRequests {
+				row = append(row, len(node.PullRequests))
+			}
+			rows = append(rows, row)
+			appendRows(node.Children, depth+1)
 		}
-		return
 	}
-
-	fmt.Printf("%-16s %-60s %s\n", "Ticket", "Name", "Status")
-	fmt.Println(strings.Repeat("-", 100))
-	fmt.Printf("%-16s %-60s %s\n", issue.Key, truncate(issue.Fields.Summary, 60), issue.Fields.Status.Name)
-	for _, child := range children {
-		displayRecursiveTableRow(child, false, 0)
-	}
-}
-
-func displayRecursiveTableRow(node issueTreeNode, includePullRequests bool, depth int) {
-	indent := strings.Repeat("  ", depth+1)
-	name := indent + node.Issue.Fields.Summary
+	appendRows(children, 1)
 	if includePullRequests {
-		fmt.Printf("%-16s %-52s %-20s %d\n", node.Issue.Key, truncate(name, 52), node.Issue.Fields.Status.Name, len(node.PullRequests))
+		renderTable([]string{"Ticket", "Name", "Status", "PRs"}, rows)
 	} else {
-		fmt.Printf("%-16s %-60s %s\n", node.Issue.Key, truncate(name, 60), node.Issue.Fields.Status.Name)
-	}
-	for _, child := range node.Children {
-		displayRecursiveTableRow(child, includePullRequests, depth+1)
+		renderTable([]string{"Ticket", "Name", "Status"}, rows)
 	}
 }
 

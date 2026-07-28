@@ -81,6 +81,15 @@ var prCommentsCmd = &cobra.Command{
 			return
 		}
 
+		if wantsTabular(cmd) {
+			rows := make([][]any, 0, len(comments))
+			for _, comment := range comments {
+				rows = append(rows, []any{comment.ID, comment.User.DisplayName, comment.CreatedOn, comment.Content.Raw})
+			}
+			renderTable([]string{"Comment", "User", "Created", "Content"}, rows)
+			return
+		}
+
 		if len(comments) == 0 {
 			fmt.Printf("No comments found on pull request #%d\n", prID)
 			return

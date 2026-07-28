@@ -46,6 +46,14 @@ var mentionedCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			rows := make([][]any, 0, len(issues))
+			for _, issue := range issues {
+				rows = append(rows, []any{issue.Key, issue.Fields.Summary, issue.Fields.Status.Name, issue.Fields.Priority.Name, issue.Fields.Assignee.DisplayName, issue.Fields.Updated})
+			}
+			renderTable([]string{"Ticket", "Summary", "Status", "Priority", "Assignee", "Updated"}, rows)
+			return
+		}
 		if len(issues) == 0 {
 			fmt.Println("No Jira issues found where you are mentioned.")
 			return

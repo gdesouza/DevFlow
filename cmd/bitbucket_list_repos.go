@@ -52,6 +52,18 @@ var listReposCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			repos, _, err := client.GetRepositoriesPaged(startPage-1, pageSize)
+			if err != nil {
+				log.Fatalf("Error fetching repositories: %v", err)
+			}
+			rows := make([][]any, 0, len(repos))
+			for _, repo := range repos {
+				rows = append(rows, []any{repo.Name, repo.FullName, repo.Language, repo.UpdatedOn, "https://bitbucket.org/" + repo.FullName})
+			}
+			renderTable([]string{"Name", "Full Name", "Language", "Updated", "URL"}, rows)
+			return
+		}
 
 		if interactive {
 			runInteractiveMode(client, cfg.Bitbucket.Workspace)

@@ -72,6 +72,10 @@ var prDiffCmd = &cobra.Command{
 			fmt.Println(string(jsonBytes))
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Repository", repoSlug}, {"Pull Request", strconv.Itoa(prID)}, {"Diff", diff}})
+			return
+		}
 
 		// Output the diff directly
 		fmt.Print(diff)

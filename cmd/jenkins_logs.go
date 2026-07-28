@@ -61,6 +61,11 @@ var jenkinsLogsCmd = &cobra.Command{
 			return
 		}
 
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Job", jobName}, {"Build", strconv.Itoa(buildNumber)}, {"Failed Step", fmt.Sprint(failedStep)}, {"Logs", logs}})
+			return
+		}
+
 		// Output the logs directly
 		fmt.Print(logs)
 	},

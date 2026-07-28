@@ -83,6 +83,19 @@ Examples:
 			return
 		}
 
+		if wantsTabular(cmd) {
+			rows := make([][]any, 0, len(pipelines))
+			for _, p := range pipelines {
+				ref := p.Target.RefName
+				if ref == "" && p.Target.Commit != nil {
+					ref = p.Target.Commit.Hash
+				}
+				rows = append(rows, []any{p.BuildNumber, pipelineStateLabel(p), ref, p.Trigger.Name, pipelineDuration(p), p.CreatedOn})
+			}
+			renderTable([]string{"Build", "Status", "Branch / Ref", "Trigger", "Duration", "Created"}, rows)
+			return
+		}
+
 		fmt.Printf("%-6s  %-12s  %-28s  %-12s  %-10s  %s\n",
 			"#", "Status", "Branch / Ref", "Trigger", "Duration", "Created")
 		fmt.Println(repeat("-", 100))
@@ -188,6 +201,15 @@ Examples:
 		completed := pipeline.CompletedOn
 		if len(completed) > 19 {
 			completed = completed[:19]
+		}
+
+		if wantsTabular(cmd) {
+			rows := [][2]string{{"Repository", repoSlug}, {"Pipeline", fmt.Sprint(pipeline.BuildNumber)}, {"Status", status}, {"Branch", ref}, {"Trigger", pipeline.Trigger.Name}, {"Created", created}, {"Duration", pipelineDuration(*pipeline)}}
+			if pipeline.Creator != nil {
+				rows = append(rows, [2]string{"Creator", pipeline.Creator.DisplayName})
+			}
+			renderKeyValueTable(rows)
+			return
 		}
 
 		fmt.Printf("Pipeline #%d  %s\n", pipeline.BuildNumber, status)

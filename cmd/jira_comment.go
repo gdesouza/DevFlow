@@ -56,6 +56,10 @@ var commentCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Issue", issueKey}, {"Body", body}, {"Added", "true"}})
+			return
+		}
 
 		fmt.Printf("✅ Added comment to %s\n", issueKey)
 	},

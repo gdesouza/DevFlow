@@ -113,6 +113,10 @@ var createPRCmd = &cobra.Command{
 			fmt.Println(string(jsonBytes))
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Repository", slug}, {"ID", fmt.Sprint(pr.ID)}, {"Title", pr.Title}, {"Source", pr.Source.Branch.Name}, {"Target", pr.Destination.Branch.Name}, {"Author", pr.Author.DisplayName}, {"URL", pr.Links.HTML.Href}})
+			return
+		}
 
 		// Display success message
 		fmt.Printf("✅ Successfully created pull request!\n")

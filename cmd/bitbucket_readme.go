@@ -43,6 +43,10 @@ var readmeCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Repository", repoSlug}, {"Filename", filename}, {"Contents", contents}})
+			return
+		}
 
 		if readmeRaw {
 			fmt.Print(contents)

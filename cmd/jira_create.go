@@ -78,6 +78,10 @@ var createTaskCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Key", issue.Key}, {"Title", title}, {"URL", cfg.Jira.URL + "/browse/" + issue.Key}})
+			return
+		}
 
 		fmt.Printf("Created Jira issue %s: %s\n", issue.Key, title)
 		fmt.Printf("URL: %s/browse/%s\n", cfg.Jira.URL, issue.Key)

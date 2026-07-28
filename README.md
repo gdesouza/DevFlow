@@ -211,11 +211,24 @@ Check whether the configured Bitbucket credentials are valid:
 If you configured `bitbucket.username`, DevFlow uses Basic auth with your email and token.
 If `bitbucket.username` is empty, DevFlow falls back to Bearer auth with the token.
 
+### Output formats
+
+Commands use the global `--format` option:
+
+```bash
+devflow tasks list --format detailed   # default human-readable output
+devflow tasks list --format json       # normalized machine-readable output
+devflow tasks list --format raw        # raw API-shaped JSON
+devflow tasks list --format tabular    # aligned table output
+```
+
+The older `--json` and `--tabular` switches remain available as deprecated compatibility aliases. Prefer `--format` for new scripts.
+
 ### Git Utilities (Local Repositories)
 
 List and inspect the sync status of all git repositories under a directory (recursively). Shows branch, sync state, dirtiness, ahead/behind counts (approximate), and upstream tracking branch.
 
-Default output now streams each repository line-by-line as soon as it is processed (faster feedback on large trees). Use `--tabular` to wait for all results and render the full table. JSON remains available with `--json`.
+Default output now streams each repository line-by-line as soon as it is processed (faster feedback on large trees). Use `--format tabular` to wait for all results and render the full table. JSON remains available with `--format raw`.
 
 Pagination is 1-based at the CLI level. For example, `--page 1` shows the first page.
 

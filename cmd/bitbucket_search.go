@@ -77,6 +77,14 @@ Examples:
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			rows := make([][]any, 0, len(matches))
+			for _, repo := range matches {
+				rows = append(rows, []any{repo.Name, repo.FullName, repo.Language, repo.UpdatedOn, "https://bitbucket.org/" + repo.FullName})
+			}
+			renderTable([]string{"Name", "Full Name", "Language", "Updated", "URL"}, rows)
+			return
+		}
 
 		fmt.Printf("Found %d matching repositories in workspace '%s':\n\n", len(matches), cfg.Bitbucket.Workspace)
 		displayReposPage(matches, cfg.Bitbucket.Workspace)

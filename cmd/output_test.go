@@ -50,7 +50,31 @@ func TestWantsJSONSupportsFormatAndLegacyFlag(t *testing.T) {
 	if err := cmd.Flags().Set("json", "true"); err != nil {
 		t.Fatal(err)
 	}
-	if !wantsJSON(cmd) {
-		t.Fatal("legacy json flag should remain supported")
+	if wantsJSON(cmd) {
+		t.Fatal("explicit detailed format should take precedence over legacy json flag")
+	}
+
+	legacyCmd := &cobra.Command{}
+	legacyCmd.Flags().String("format", formatDetailed, "")
+	legacyCmd.Flags().Bool("json", false, "")
+	if err := legacyCmd.Flags().Set("json", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if !wantsJSON(legacyCmd) {
+		t.Fatal("legacy json flag should remain supported when format is not explicit")
+	}
+}
+
+func TestWantsTabularHonorsExplicitFormat(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("format", formatDetailed, "")
+	if wantsTabular(cmd) {
+		t.Fatal("detailed format should not select tabular")
+	}
+	if err := cmd.Flags().Set("format", formatTabular); err != nil {
+		t.Fatal(err)
+	}
+	if !wantsTabular(cmd) {
+		t.Fatal("tabular format should select tabular output")
 	}
 }

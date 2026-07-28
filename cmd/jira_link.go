@@ -45,6 +45,10 @@ var linkCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Issue", issueKey}, {"URL", linkURL}, {"Added", "true"}})
+			return
+		}
 		fmt.Printf("🔗 Added link to %s: %s\n", issueKey, linkURL)
 	},
 }

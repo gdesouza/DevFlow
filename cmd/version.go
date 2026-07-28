@@ -18,6 +18,10 @@ var versionCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Version", version}})
+			return
+		}
 		fmt.Println(version)
 	},
 }

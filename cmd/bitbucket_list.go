@@ -65,6 +65,8 @@ Behavior:
 
 			if jsonOutput {
 				printPRsJSON(cfg.Bitbucket.Workspace, slug, prs)
+			} else if wantsTabular(cmd) {
+				printPRsTabular(cfg.Bitbucket.Workspace, slug, prs)
 			} else {
 				printRepoPRs(cfg.Bitbucket.Workspace, slug, prs)
 			}
@@ -97,6 +99,8 @@ Behavior:
 					Repository:   w,
 					PullRequests: prs,
 				})
+			} else if wantsTabular(cmd) {
+				printPRsTabular(cfg.Bitbucket.Workspace, w, prs)
 			} else {
 				printRepoPRs(cfg.Bitbucket.Workspace, w, prs)
 			}
@@ -159,6 +163,14 @@ func printRepoPRs(workspace, slug string, prs []bitbucket.PullRequest) {
 		fmt.Printf("  %s #%d - %s 🔗 https://bitbucket.org/%s/%s/pull-requests/%d\n", statusIcon, pr.ID, pr.Title, workspace, slug, pr.ID)
 	}
 	fmt.Println()
+}
+
+func printPRsTabular(workspace, slug string, prs []bitbucket.PullRequest) {
+	rows := make([][]any, 0, len(prs))
+	for _, pr := range prs {
+		rows = append(rows, []any{slug, pr.ID, pr.Title, pr.State, pr.Author.DisplayName, pr.Source.Branch.Name, pr.Destination.Branch.Name, fmt.Sprintf("https://bitbucket.org/%s/%s/pull-requests/%d", workspace, slug, pr.ID)})
+	}
+	renderTable([]string{"Repository", "ID", "Title", "State", "Author", "Source", "Target", "URL"}, rows)
 }
 
 // getPRStatusIcon returns an appropriate emoji/icon for the given PR state

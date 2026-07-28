@@ -60,6 +60,10 @@ Slug Tips:
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			renderKeyValueTable([][2]string{{"Repository", workspace + "/" + repoSlug}, {"HTTPS", httpsURL}, {"SSH", sshURL}})
+			return
+		}
 
 		// Single output mode
 		if remoteSSH {

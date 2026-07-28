@@ -47,6 +47,14 @@ var spacesCmd = &cobra.Command{
 			}
 			return
 		}
+		if wantsTabular(cmd) {
+			rows := make([][]any, 0, len(projects))
+			for _, project := range projects {
+				rows = append(rows, []any{project.Key, project.Name, project.Lead.DisplayName})
+			}
+			renderTable([]string{"Key", "Name", "Lead"}, rows)
+			return
+		}
 		if len(projects) == 0 {
 			fmt.Println("No Jira projects found.")
 			return

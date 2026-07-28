@@ -13,6 +13,7 @@ func TestValidateFormat(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "json", format: formatJSON},
+		{name: "raw", format: formatRaw},
 		{name: "tabular", format: formatTabular},
 		{name: "detailed", format: formatDetailed},
 		{name: "invalid", format: "yaml", wantErr: true},

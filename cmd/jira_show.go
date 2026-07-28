@@ -48,13 +48,26 @@ var showIssueCmd = &cobra.Command{
 		}
 		if wantsJSON(cmd) {
 			var pullRequests []jira.PullRequestRef
+			var children []jira.Issue
 			if showPullRequests {
 				pullRequests, err = client.GetIssuePullRequests(issue.ID)
 				if err != nil {
 					log.Fatalf("Error fetching pull requests: %v", err)
 				}
 			}
-			if err := printJSON(issueJSONValue(issue, pullRequests, showPullRequests)); err != nil {
+			if showChildren {
+				children, err = fetchChildIssues(client, issueKey)
+				if err != nil {
+					log.Fatalf("Error fetching child issues: %v", err)
+				}
+			}
+			var output any
+			if wantsRaw(cmd) {
+				output = issueJSONValueWithChildren(issue, pullRequests, showPullRequests, children, showChildren)
+			} else {
+				output = normalizedIssueJSON(issue, pullRequests, showPullRequests, children, showChildren)
+			}
+			if err := printJSON(output); err != nil {
 				log.Fatalf("Error encoding JSON: %v", err)
 			}
 			return
@@ -73,24 +86,205 @@ var showIssueCmd = &cobra.Command{
 	},
 }
 
+type normalizedIssue struct {
+	ID           string                   `json:"id"`
+	Key          string                   `json:"key"`
+	Summary      string                   `json:"summary"`
+	Status       string                   `json:"status"`
+	Priority     string                   `json:"priority,omitempty"`
+	Assignee     string                   `json:"assignee,omitempty"`
+	Reporter     string                   `json:"reporter,omitempty"`
+	Team         *normalizedTeam          `json:"team,omitempty"`
+	Created      string                   `json:"created,omitempty"`
+	Updated      string                   `json:"updated,omitempty"`
+	Description  string                   `json:"description,omitempty"`
+	Comments     []normalizedComment      `json:"comments"`
+	Attachments  []normalizedAttachment   `json:"attachments"`
+	Children     *[]normalizedChild       `json:"children,omitempty"`
+	PullRequests *[]normalizedPullRequest `json:"pull_requests,omitempty"`
+}
+
+type normalizedTeam struct {
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
+type normalizedComment struct {
+	Author  string `json:"author"`
+	Created string `json:"created"`
+	Body    string `json:"body"`
+}
+
+type normalizedAttachment struct {
+	Filename string `json:"filename"`
+	Size     int64  `json:"size"`
+	Created  string `json:"created,omitempty"`
+}
+
+type normalizedChild struct {
+	Key      string `json:"key"`
+	Summary  string `json:"summary"`
+	Status   string `json:"status"`
+	Priority string `json:"priority,omitempty"`
+	Assignee string `json:"assignee,omitempty"`
+}
+
+type normalizedPullRequest struct {
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	URL               string `json:"url,omitempty"`
+	Status            string `json:"status,omitempty"`
+	Author            string `json:"author,omitempty"`
+	SourceBranch      string `json:"source_branch,omitempty"`
+	DestinationBranch string `json:"destination_branch,omitempty"`
+	LastUpdate        string `json:"last_update,omitempty"`
+}
+
+func normalizedIssueJSON(issue *jira.IssueDetails, pullRequests []jira.PullRequestRef, includePullRequests bool, children []jira.Issue, includeChildren bool) normalizedIssue {
+	comments := make([]normalizedComment, 0, len(issue.Fields.Comment.Comments))
+	for _, comment := range issue.Fields.Comment.Comments {
+		comments = append(comments, normalizedComment{
+			Author:  comment.Author.DisplayName,
+			Created: comment.Created,
+			Body:    normalizedText(comment.Body),
+		})
+	}
+
+	attachments := make([]normalizedAttachment, 0, len(issue.Fields.Attachment))
+	for _, attachment := range issue.Fields.Attachment {
+		attachments = append(attachments, normalizedAttachment{
+			Filename: attachment.Filename,
+			Size:     attachment.Size,
+			Created:  attachment.Created,
+		})
+	}
+
+	output := normalizedIssue{
+		ID:          issue.ID,
+		Key:         issue.Key,
+		Summary:     issue.Fields.Summary,
+		Status:      issue.Fields.Status.Name,
+		Priority:    issue.Fields.Priority.Name,
+		Assignee:    issue.Fields.Assignee.DisplayName,
+		Reporter:    issue.Fields.Reporter.DisplayName,
+		Created:     issue.Fields.Created,
+		Updated:     issue.Fields.Updated,
+		Description: normalizedText(issue.Fields.Description),
+		Comments:    comments,
+		Attachments: attachments,
+	}
+	if issue.Fields.TeamAssigned.ID != "" || issue.Fields.TeamAssigned.Name != "" {
+		output.Team = &normalizedTeam{ID: issue.Fields.TeamAssigned.ID, Name: issue.Fields.TeamAssigned.Name}
+	}
+
+	if includeChildren {
+		normalizedChildren := make([]normalizedChild, 0, len(children))
+		for _, child := range children {
+			normalizedChildren = append(normalizedChildren, normalizedChild{
+				Key:      child.Key,
+				Summary:  child.Fields.Summary,
+				Status:   child.Fields.Status.Name,
+				Priority: child.Fields.Priority.Name,
+				Assignee: child.Fields.Assignee.DisplayName,
+			})
+		}
+		output.Children = &normalizedChildren
+	}
+
+	if includePullRequests {
+		normalizedPullRequests := make([]normalizedPullRequest, 0, len(pullRequests))
+		for _, pullRequest := range pullRequests {
+			normalizedPullRequests = append(normalizedPullRequests, normalizedPullRequest{
+				ID:                pullRequest.ID,
+				Name:              pullRequest.Name,
+				URL:               pullRequest.URL,
+				Status:            pullRequest.Status,
+				Author:            pullRequest.Author.Name,
+				SourceBranch:      pullRequest.Source.Branch,
+				DestinationBranch: pullRequest.Destination.Branch,
+				LastUpdate:        pullRequest.LastUpdate,
+			})
+		}
+		output.PullRequests = &normalizedPullRequests
+	}
+
+	return output
+}
+
+func normalizedText(value any) string {
+	if value == nil {
+		return ""
+	}
+	if text, ok := value.(string); ok {
+		return cleanDescription(text)
+	}
+
+	var parts []string
+	var walk func(any)
+	walk = func(current any) {
+		switch item := current.(type) {
+		case map[string]any:
+			if text, ok := item["text"].(string); ok {
+				parts = append(parts, text)
+			}
+			if attrs, ok := item["attrs"].(map[string]any); ok {
+				if url, ok := attrs["url"].(string); ok {
+					parts = append(parts, url)
+				}
+			}
+			if content, ok := item["content"]; ok {
+				walk(content)
+			}
+		case []any:
+			for _, child := range item {
+				walk(child)
+			}
+		}
+	}
+	walk(value)
+	if len(parts) > 0 {
+		return strings.Join(strings.Fields(strings.Join(parts, " ")), " ")
+	}
+	return cleanDescription(fmt.Sprintf("%v", value))
+}
+
 func init() {
 	showIssueCmd.Flags().BoolVar(&showChildren, "children", false, "List the ticket's child items")
 	showIssueCmd.Flags().BoolVar(&showPullRequests, "pull-requests", false, "List the ticket's linked pull requests")
 }
 
 func issueJSONValue(issue *jira.IssueDetails, pullRequests []jira.PullRequestRef, includePullRequests bool) any {
-	if !includePullRequests {
-		return issue
+	return issueJSONValueWithChildren(issue, pullRequests, includePullRequests, nil, false)
+}
+
+func issueJSONValueWithChildren(issue *jira.IssueDetails, pullRequests []jira.PullRequestRef, includePullRequests bool, children []jira.Issue, includeChildren bool) any {
+	var pullRequestsValue *[]jira.PullRequestRef
+	if includePullRequests {
+		if pullRequests == nil {
+			pullRequests = []jira.PullRequestRef{}
+		}
+		pullRequestsValue = &pullRequests
 	}
-	if pullRequests == nil {
-		pullRequests = []jira.PullRequestRef{}
+
+	var childrenValue *[]jira.Issue
+	if includeChildren {
+		if children == nil {
+			children = []jira.Issue{}
+		}
+		childrenValue = &children
+	}
+
+	if !includePullRequests && !includeChildren {
+		return issue
 	}
 	return struct {
 		*jira.IssueDetails
-		PullRequests []jira.PullRequestRef `json:"pull_requests"`
+		PullRequests *[]jira.PullRequestRef `json:"pull_requests,omitempty"`
+		Children     *[]jira.Issue          `json:"children,omitempty"`
 	}{
 		IssueDetails: issue,
-		PullRequests: pullRequests,
+		PullRequests: pullRequestsValue,
+		Children:     childrenValue,
 	}
 }
 
@@ -126,8 +320,7 @@ func displayPullRequests(client *jira.Client, issue *jira.IssueDetails) {
 // displayChildIssues fetches and prints the child issues (e.g. subtasks or
 // items whose parent is issueKey) for the given ticket.
 func displayChildIssues(client *jira.Client, cfg *config.Config, issueKey string) {
-	jql := fmt.Sprintf("parent = %s ORDER BY status ASC, priority DESC", issueKey)
-	children, err := client.Search(jql, true, 0, 0)
+	children, err := fetchChildIssues(client, issueKey)
 	if err != nil {
 		log.Fatalf("Error fetching child issues: %v", err)
 	}
@@ -152,6 +345,11 @@ func displayChildIssues(client *jira.Client, cfg *config.Config, issueKey string
 		}
 		fmt.Println()
 	}
+}
+
+func fetchChildIssues(client *jira.Client, issueKey string) ([]jira.Issue, error) {
+	jql := fmt.Sprintf("parent = %s ORDER BY status ASC, priority DESC", issueKey)
+	return client.Search(jql, true, 0, 0)
 }
 
 func displayIssueDetails(issue *jira.IssueDetails) {

@@ -10,6 +10,7 @@ import (
 
 const (
 	formatJSON     = "json"
+	formatRaw      = "raw"
 	formatTabular  = "tabular"
 	formatDetailed = "detailed"
 )
@@ -25,10 +26,18 @@ func formatFor(cmd *cobra.Command) string {
 }
 
 func wantsJSON(cmd *cobra.Command) bool {
-	if formatFor(cmd) == formatJSON {
+	if formatFor(cmd) == formatJSON || formatFor(cmd) == formatRaw {
 		return true
 	}
 	// Keep the existing flag as a backwards-compatible alias.
+	legacyJSON, err := cmd.Flags().GetBool("json")
+	return err == nil && legacyJSON
+}
+
+func wantsRaw(cmd *cobra.Command) bool {
+	if formatFor(cmd) == formatRaw {
+		return true
+	}
 	legacyJSON, err := cmd.Flags().GetBool("json")
 	return err == nil && legacyJSON
 }
@@ -41,9 +50,9 @@ func printJSON(value any) error {
 
 func validateFormat(cmd *cobra.Command, _ []string) error {
 	switch formatFor(cmd) {
-	case formatJSON, formatTabular, formatDetailed:
+	case formatJSON, formatRaw, formatTabular, formatDetailed:
 		return nil
 	default:
-		return fmt.Errorf("invalid format %q: must be one of json, tabular, or detailed", formatFor(cmd))
+		return fmt.Errorf("invalid format %q: must be one of json, raw, tabular, or detailed", formatFor(cmd))
 	}
 }
